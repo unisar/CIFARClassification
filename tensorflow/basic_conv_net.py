@@ -85,10 +85,10 @@ accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
 
 #run session
 
-batch_size = 2000
+batch_size = 200
 
 sess.run(tf.initialize_all_variables())
-for i in range(3000):
+for i in range(30000):
     indices = np.random.permutation(X_train.shape[0])[:batch_size]
     X_batch = X_train[indices,:,:,:]
     y_batch = y_train[indices,:]
