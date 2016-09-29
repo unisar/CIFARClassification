@@ -7,14 +7,19 @@ import sys
 import glob
 import matplotlib.pyplot as plt
 from sklearn.cross_validation import train_test_split
+import random
 
 input = np.load('X_train.npy')   
 labels = np.genfromtxt('../data/y_train.txt')
 
 X_train, X_test, y_train, y_test = train_test_split(input, labels, test_size=0.1, random_state=42, stratify=labels)
 
+input_flipped = np.load('X_train_flipped.npy')
+
+X_train_flipped, X_test_flipped, y_train_flipped, y_test_flipped = train_test_split(input_flipped, labels, test_size=0.1, random_state=42, stratify=labels)
+
 convolutional_layers = 6
-feature_maps = [3,20,20,80,80,320,320]
+feature_maps = [3,40,40,80,80,160,160]
 filter_shapes = [(3,3),(3,3),(3,3),(3,3),(3,3),(3,3)]
 feedforward_layers = 1
 feedforward_nodes = [2000]
@@ -55,7 +60,7 @@ class neural_network(object):
             else:
                 self.convolutional_layers.append(convolutional_layer(self.convolutional_layers[i-1].output,feature_maps[i+1],feature_maps[i],filter_shapes[i][0],filter_shapes[i][1]))
         self.feedforward_layers = []
-        self.feedforward_layers.append(feedforward_layer(self.convolutional_layers[-1].output.flatten(2),np.prod(image_shape)*feature_maps[1],feedforward_nodes[0]))
+        self.feedforward_layers.append(feedforward_layer(self.convolutional_layers[-1].output.flatten(2),10240,feedforward_nodes[0]))
         for i in range(1,feedforward_layers):
             self.feedforward_layers.append(feedforward_layer(self.feedforward_layers[i-1].output,feedforward_nodes[i-1],feedforward_nodes[i]))
         self.output_layer = feedforward_layer(self.feedforward_layers[-1].output,feedforward_nodes[-1],classes)
@@ -112,7 +117,10 @@ nn = neural_network(convolutional_layers,feature_maps,filter_shapes,feedforward_
 batch_size = 500
 
 for i in range(10000):
-    cost = nn.train(X_train,y_train,batch_size)
+    if random.random() < .5:
+        cost = nn.train(X_train,y_train,batch_size)
+    else:
+        cost = nn.train(X_train_flipped,y_train_flipped,batch_size)
     sys.stdout.write("step %i training error: %f \r" % (i+1, cost))
     sys.stdout.flush()
     if (i+1)%100 == 0:
