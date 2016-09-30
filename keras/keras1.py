@@ -3,7 +3,6 @@ from __future__ import division
 from __future__ import print_function
 import numpy as np
 import sys
-import matplotlib.pyplot as plt
 from sklearn.cross_validation import train_test_split
 from keras.models import Sequential
 from keras.layers import Dense, Activation
@@ -15,21 +14,35 @@ from keras.optimizers import SGD
 from keras.optimizers import Adam
 from keras.utils import np_utils
 from keras.regularizers import l2, activity_l2
+import pandas as pd
 
 
-X_train = np.load('./X_small_train_1.npy')   
-y_train = np.genfromtxt('../data/y_small_train.txt')
+X_train = np.load('./data/X_large_train_1.npy')   
+y_train = np.genfromtxt('./data/y_train.txt')
+#X_train = pd.DataFrame(X_train)
+#y_train = pd.Series(y_train)
 
-X_test = np.load('./X_small_test_1.npy')   
-y_test = np.genfromtxt('../data/y_small_test.txt')
+
+'''
+X_test = np.load('./X_large_test_1.npy')   
+y_test = np.genfromtxt('./y_large_test.txt')
+
+X_train = np.load('./X_large_train_1.npy')   
+y_train = np.genfromtxt('./y_large_train.txt')
+
+X_test = np.load('./X_large_test_1.npy')   
+y_test = np.genfromtxt('./y_large_test.txt')
+
 print (X_test.shape)
 print ("X_test shape")
 print ("X_test and y_test lengths: %i %i respectively",(X_test.shape,y_test.shape))
+'''
 
+X_train,X_test,y_train,y_test = train_test_split(X_train, y_train, test_size=0.1, random_state=42, stratify=y_train)
 
-batch_size = 128
+batch_size = 125
 nb_classes = 10
-nb_epoch = 100
+nb_epoch = 200
 data_augmentation = True
 
 # input image dimensions
@@ -37,28 +50,63 @@ img_rows, img_cols = 32, 32
 # the CIFAR10 images are RGB
 img_channels = 3
 
+print (y_train)
+print ("Y_train:")
 # convert class vectors to binary class matrices
 y_train = np_utils.to_categorical(y_train, nb_classes)
 y_test = np_utils.to_categorical(y_test, nb_classes)
+print (y_train)
+print ("Y_train after:")
+
 
 model = Sequential()
-model.add(Convolution2D(64, 5, 5,border_mode='same',input_shape=X_train.shape[1:]))
-model.add(Activation('relu'))
 
-model.add(Convolution2D(64, 5, 5))
+
+model.add(Convolution2D(32, 3, 3,border_mode='same',input_shape=X_train.shape[1:]))
 model.add(Activation('relu'))
+model.add(MaxPooling2D(pool_size=(2,2),strides=(1,1)))
+
+'''
+model.add(Convolution2D(32, 3, 3))
+model.add(Activation('relu'))
+model.add(MaxPooling2D(pool_size=(2,2),strides=(1,1)))
+'''
+
+model.add(Convolution2D(64, 3, 3))
+model.add(Activation('relu'))
+model.add(MaxPooling2D(pool_size=(2,2),strides=(1,1)))
+
+'''
+model.add(Convolution2D(64, 3, 3))
+model.add(Activation('relu'))
+model.add(MaxPooling2D(pool_size=(2,2),strides=(1,1)))
+'''
+
+model.add(Convolution2D(128, 3, 3))
+model.add(Activation('relu'))
+model.add(MaxPooling2D(pool_size=(2,2),strides=(1,1)))
+
+'''
+model.add(Convolution2D(128, 3, 3))
+model.add(Activation('relu'))
+model.add(MaxPooling2D(pool_size=(2,2),strides=(1,1)))
+'''
+
+'''
 model.add(Convolution2D(32, 5, 5))
 model.add(Activation('relu'))
-model.add(MaxPooling2D(pool_size=(2,2)))
+
 
 model.add(Convolution2D(64, 3, 3))
 model.add(Activation('relu'))
 model.add(Convolution2D(32, 3, 3))
 model.add(Activation('relu'))
 model.add(MaxPooling2D(pool_size=(2,2)))
-
+'''
 model.add(Flatten())
-model.add(Dense(128))
+model.add(Dense(1024))
+model.add(Activation('relu'))
+model.add(Dense(1024))
 model.add(Activation('relu'))
 model.add(Dropout(0.5))
 model.add(Dense(nb_classes))
@@ -84,13 +132,13 @@ else:
     datagen = ImageDataGenerator(
         featurewise_center=False,  # set input mean to 0 over the dataset
         samplewise_center=False,  # set each sample mean to 0
-        featurewise_std_normalization=False,  # divide inputs by std of the dataset
+        featurewise_std_normalization=True,  # divide inputs by std of the dataset
         samplewise_std_normalization=False,  # divide each input by its std
-        zca_whitening=True,  # apply ZCA whitening
+        zca_whitening=False,  # apply ZCA whitening
         rotation_range=0,  # randomly rotate images in the range (degrees, 0 to 180)
         width_shift_range=0,  # randomly shift images horizontally (fraction of total width)
         height_shift_range=0,  # randomly shift images vertically (fraction of total height)
-        horizontal_flip=False,  # randomly flip images
+        horizontal_flip=True,  # randomly flip images
         vertical_flip=False)  # randomly flip images
 
     # compute quantities required for featurewise normalization
@@ -111,4 +159,6 @@ print('Test accuracy:', score[1])
 thefile = open('./outputscores.txt', 'w')
 for item in score:
   thefile.write("%s\n" % item)
+
+
 
