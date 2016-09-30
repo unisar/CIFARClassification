@@ -1,6 +1,7 @@
 import tensorflow as tf
 import numpy as np
 from sklearn.cross_validation import train_test_split
+import random
 
 #load data
 input = np.load('X_train.npy')   
@@ -17,6 +18,10 @@ def one_hot(y):
 
 y_train = one_hot(y_train)
 y_test = one_hot(y_test)
+
+input_flipped = np.load('X_train_flipped.npy')
+
+X_train_flipped, X_test_flipped, y_train_flipped, y_test_flipped = train_test_split(input_flipped, labels, test_size=0.1, random_state=42, stratify=labels)
 
 #define convolutional neural network model
 sess = tf.InteractiveSession()
@@ -85,12 +90,15 @@ accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
 
 #run session
 
-batch_size = 200
+batch_size = 500
 
 sess.run(tf.initialize_all_variables())
-for i in range(30000):
+for i in range(10000):
     indices = np.random.permutation(X_train.shape[0])[:batch_size]
-    X_batch = X_train[indices,:,:,:]
+    if random.random() < .5:
+        X_batch = X_train[indices,:,:,:]
+    else:
+        X_batch = X_train_flipped[indices,:,:,:]
     y_batch = y_train[indices,:]
     if i%100 == 0:
         train_accuracy = accuracy.eval(feed_dict={x:X_batch, y_:y_batch, keep_prob: 1.0})
