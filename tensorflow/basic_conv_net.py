@@ -99,7 +99,7 @@ for i in range(10000):
     y_batch = y_train[indices,:]
     if random.random() < .5:
         X_batch = np.fliplr(X_batch)
-        y_batch = np.flipup(y_batch)
+        y_batch = np.flipud(y_batch)
     if i%100 == 0:
         train_accuracy = accuracy.eval(feed_dict={x:X_batch, y_:y_batch, keep_prob: 1.0})
         print "step %d, training accuracy %g" % (i, train_accuracy)

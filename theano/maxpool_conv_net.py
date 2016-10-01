@@ -103,7 +103,7 @@ class neural_network(object):
             y = y[indices]
         if random.random() < .5:
             X = np.fliplr(X)
-            y = np.flipup(y)
+            y = np.flipud(y)
         target = np.zeros((y.shape[0],len(np.unique(y))))
         for i in range(len(np.unique(y))):
             target[y==i,i] = 1
