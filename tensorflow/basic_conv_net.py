@@ -95,11 +95,11 @@ batch_size = 500
 sess.run(tf.initialize_all_variables())
 for i in range(10000):
     indices = np.random.permutation(X_train.shape[0])[:batch_size]
-    if random.random() < .5:
-        X_batch = X_train[indices,:,:,:]
-    else:
-        X_batch = X_train_flipped[indices,:,:,:]
+    X_batch = X_train[indices,:,:,:]
     y_batch = y_train[indices,:]
+    if random.random() < .5:
+        X_batch = np.fliplr(X_batch)
+        y_batch = np.flipud(y_batch)
     if i%100 == 0:
         train_accuracy = accuracy.eval(feed_dict={x:X_batch, y_:y_batch, keep_prob: 1.0})
         print "step %d, training accuracy %g" % (i, train_accuracy)

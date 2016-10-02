@@ -3,20 +3,19 @@ import theano
 import theano.tensor as T
 from theano.tensor.nnet import conv2d
 from theano.tensor.signal import downsample
+from theano.tensor.shared_randomstreams import RandomStreams
 import sys
 import glob
 import matplotlib.pyplot as plt
 from sklearn.cross_validation import train_test_split
 import random
 
+srng = RandomStreams(seed=234)
+
 input = np.load('X_train.npy')   
 labels = np.genfromtxt('../data/y_train.txt')
 
 X_train, X_test, y_train, y_test = train_test_split(input, labels, test_size=0.1, random_state=42, stratify=labels)
-
-input_flipped = np.load('X_train_flipped.npy')
-
-X_train_flipped, X_test_flipped, y_train_flipped, y_test_flipped = train_test_split(input_flipped, labels, test_size=0.1, random_state=42, stratify=labels)
 
 convolutional_layers = 6
 feature_maps = [3,40,40,80,80,160,160]
@@ -102,12 +101,15 @@ class neural_network(object):
             indices = np.random.permutation(X.shape[0])[:batch_size]
             X = X[indices,:,:,:]
             y = y[indices]
+        if random.random() < .5:
+            X = np.fliplr(X)
+            y = np.flipud(y)
         target = np.zeros((y.shape[0],len(np.unique(y))))
         for i in range(len(np.unique(y))):
             target[y==i,i] = 1
         return self.propogate(X,target)
-    def predict(self,X):
     
+    def predict(self,X):
         prediction = self.classify(X)
         return np.argmax(prediction,axis=1)
 
@@ -117,10 +119,7 @@ nn = neural_network(convolutional_layers,feature_maps,filter_shapes,feedforward_
 batch_size = 500
 
 for i in range(10000):
-    if random.random() < .5:
-        cost = nn.train(X_train,y_train,batch_size)
-    else:
-        cost = nn.train(X_train_flipped,y_train_flipped,batch_size)
+    cost = nn.train(X_train,y_train,batch_size)
     sys.stdout.write("step %i training error: %f \r" % (i+1, cost))
     sys.stdout.flush()
     if (i+1)%100 == 0:
