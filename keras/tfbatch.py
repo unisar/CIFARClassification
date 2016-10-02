@@ -19,7 +19,7 @@ y_test = one_hot(y_test)
 image_size = 32
 num_channels = 3
 num_labels=10
-batch_size = 200
+batch_size = 150
 patch_size = 3
 
 sess = tf.InteractiveSession()
@@ -60,7 +60,7 @@ hidden = tf.nn.relu(BN2 + bias_variable([16]))
 
 conv = conv2d(hidden, weight_variable([3,3,16,32]))
 hidden = tf.nn.relu(conv + bias_variable([32]))
-maxpool = max_pool_2x2(hidden, [1, 2, 2, 1])
+#maxpool = max_pool_2x2(hidden, [1, 2, 2, 1])
 
 
 conv = conv2d(hidden, weight_variable([3,3,32,64]))
@@ -70,11 +70,12 @@ hidden = tf.nn.relu(conv + bias_variable([64]))
 
 conv = conv2d(hidden, weight_variable([3,3,64,64]))
 hidden = tf.nn.relu(conv + bias_variable([64]))
-maxpool = max_pool_2x2(hidden, [1, 2, 2, 1])
+#maxpool = max_pool_2x2(hidden, [1, 2, 2, 1])
+maxpool = hidden
 
 
 shape = maxpool.get_shape().as_list()
-layer3_weights = tf.Variable(tf.truncated_normal([16 * 16 * 64, 64], stddev=0.1))
+layer3_weights = tf.Variable(tf.truncated_normal([32 * 32 * 64, 64], stddev=0.1))
 layer3_biases = tf.Variable(tf.constant(1.0, shape=[64]))
 reshape = tf.reshape(maxpool, [-1, shape[1] * shape[2] * shape[3]])
 hidden = tf.nn.relu(tf.matmul(reshape, layer3_weights) + layer3_biases)
