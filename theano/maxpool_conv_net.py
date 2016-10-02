@@ -10,20 +10,17 @@ import matplotlib.pyplot as plt
 from sklearn.cross_validation import train_test_split
 import random
 
-srng = RandomStreams(seed=234)
-
-input = np.load('X_train.npy')   
+input = np.load('X_train_zca.npy')   
 labels = np.genfromtxt('../data/y_train.txt')
 
 X_train, X_test, y_train, y_test = train_test_split(input, labels, test_size=0.1, random_state=42, stratify=labels)
 
 convolutional_layers = 6
-feature_maps = [3,40,40,80,80,160,160]
+feature_maps = [3,80,80,160,160,320,320]
 filter_shapes = [(3,3),(3,3),(3,3),(3,3),(3,3),(3,3)]
 feedforward_layers = 1
 feedforward_nodes = [2000]
 classes = 10
-image_shape = (32,32)
 
 class convolutional_layer(object):
     def __init__(self, input, output_maps, input_maps, filter_height, filter_width, maxpool=None):
@@ -59,7 +56,7 @@ class neural_network(object):
             else:
                 self.convolutional_layers.append(convolutional_layer(self.convolutional_layers[i-1].output,feature_maps[i+1],feature_maps[i],filter_shapes[i][0],filter_shapes[i][1]))
         self.feedforward_layers = []
-        self.feedforward_layers.append(feedforward_layer(self.convolutional_layers[-1].output.flatten(2),10240,feedforward_nodes[0]))
+        self.feedforward_layers.append(feedforward_layer(self.convolutional_layers[-1].output.flatten(2),11520,feedforward_nodes[0]))
         for i in range(1,feedforward_layers):
             self.feedforward_layers.append(feedforward_layer(self.feedforward_layers[i-1].output,feedforward_nodes[i-1],feedforward_nodes[i]))
         self.output_layer = feedforward_layer(self.feedforward_layers[-1].output,feedforward_nodes[-1],classes)
@@ -99,35 +96,38 @@ class neural_network(object):
     def train(self,X,y,batch_size=None):
         if batch_size:
             indices = np.random.permutation(X.shape[0])[:batch_size]
-            X = X[indices,:,:,:]
+            crop1 = np.random.randint(0,8)
+            crop2 = np.random.randint(0,8)
+            X = X[indices,:,crop1:crop1+24,crop2:crop2+24]
             y = y[indices]
-        if random.random() < .5:
-            X = np.fliplr(X)
-            y = np.flipud(y)
+        y = np.concatenate((y,np.arange(10))) #make sure y includes all possible labels
         target = np.zeros((y.shape[0],len(np.unique(y))))
         for i in range(len(np.unique(y))):
             target[y==i,i] = 1
+        target = target[:-10,:] #drop extra labels inserted at end
+        if random.random() < .5:
+            X = np.fliplr(X)
+            y = np.flipud(y)
         return self.propogate(X,target)
     
     def predict(self,X):
-        prediction = self.classify(X)
+        cropped = X[:,:,4:28,4:28]
+        prediction = self.classify(cropped)
         return np.argmax(prediction,axis=1)
 
 print "building neural network"
 nn = neural_network(convolutional_layers,feature_maps,filter_shapes,feedforward_layers,feedforward_nodes,classes)
 
-batch_size = 500
+batch_size = 250
 
-for i in range(10000):
+for i in range(20000):
     cost = nn.train(X_train,y_train,batch_size)
     sys.stdout.write("step %i training error: %f \r" % (i+1, cost))
     sys.stdout.flush()
     if (i+1)%100 == 0:
-        pred1 = nn.predict(X_test[:1000,:])
-        pred2 = nn.predict(X_test[1000:2000,:])
-        pred3 = nn.predict(X_test[2000:3000,:])
-        pred4 = nn.predict(X_test[3000:4000,:])
-        pred5 = nn.predict(X_test[4000:,:])
-        pred = np.concatenate((pred1,pred2,pred3,pred4,pred5))
+        preds = []
+        for j in range(0,X_test.shape[0],batch_size):
+             preds.append(nn.predict(X_test[j:j+batch_size,:]))
+        pred = np.concatenate(preds)
         error = 1-float(np.sum(pred==y_test))/len(pred)
-        print "error at iteration %i: %.4f" % (i+1,error) 
+        print "error at iteration %i: %.4f" % (i+1,error)
