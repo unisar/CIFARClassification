@@ -5,6 +5,12 @@ When building it from source, several other things have to done. Everytime I tri
 faced many compatibility issues. Be it with nVidia drivers or the CUDA Toolkit and Cudnn versions or Bazel.
 Also, when building it from source, it takes up the disk space on g2.2xlarge and then No disk space errors are raised! 
 
+After setting up the instance, you'll need to install gcc first: 
+
+```
+sudo apt-get install gcc
+```
+
 * Launch g2.2xlarge instance. It's always better to add storage to the instance. Max for a free tier user is: 30G
 
 * Tensorflow binary packages for GPU version works best(rather only works) with Cuda Toolkit 7.5 and cuDNN v5.1. To install the toolkit:
