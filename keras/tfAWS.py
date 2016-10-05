@@ -12,12 +12,14 @@ def one_hot(y):
 
 #Read Input
 args = (sys.argv)
+
+#input must be of shape: <no_of_inputs,w,h,num_channels>
 X_ = np.load(args[1])   
 y_ = np.genfromtxt(args[2])
 noOfIterations = int(args[3])
 
 y_ = one_hot(y_)
-X_train, X_test, y_train, y_test = train_test_split(X_, y_, test_size=0.2, random_state=42)
+X_train, X_test, y_train, y_test = train_test_split(X_, y_, test_size=0.1, random_state=42)
 
 
 image_size = 32
