@@ -11,6 +11,12 @@ After setting up the instance, you'll need to install gcc first and make:
 sudo apt-get install gcc
 sudo apt-get install make
 ```
+* Install various packages
+```
+sudo apt-get update
+sudo apt-get upgrade -y
+sudo apt-get install -y build-essential python-pip python-dev git python-numpy swig python-dev default-jdk zip zlib1g-dev
+```
 
 * Launch g2.2xlarge instance. It's always better to add storage to the instance. Max for a free tier user is: 30G
 
@@ -50,6 +56,11 @@ sudo ./NVIDIA-Linux-x86_64-361.28.run
 ```
 
 * You can get cuDNN here: https://developer.nvidia.com/compute/machine-learning/cudnn/secure/v5.1/prod/7.5/cudnn-7.5-linux-x64-v5.1-tgz
+```
+tar -xzf cudnn-7.5-linux-x64-v5.1.tgz 
+sudo cp cuda/lib64/* /usr/local/cuda/lib64
+sudo cp cuda/include/cudnn.h /usr/local/cuda/include/
+```
 
 * Install PIP: Ubuntu/Linux 64-bit
 
@@ -61,7 +72,7 @@ export TF_BINARY_URL=https://storage.googleapis.com/tensorflow/linux/gpu/tensorf
 
 * Python 2
 
-sudo pip install --upgrade $TF_BINARY_U
+sudo pip install --upgrade $TF_BINARY_URL
 
 And then.. test your installation...
 
