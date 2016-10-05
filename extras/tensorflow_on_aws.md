@@ -14,6 +14,23 @@ sudo apt-get install make
 
 * Launch g2.2xlarge instance. It's always better to add storage to the instance. Max for a free tier user is: 30G
 
+* Blacklist Noveau which has some kind of conflict with the nvidia driver
+```
+echo -e "blacklist nouveau\nblacklist lbm-nouveau\noptions nouveau modeset=0\nalias nouveau off\nalias lbm-nouveau off\n" | sudo tee /etc/modprobe.d/blacklist-nouveau.conf
+echo options nouveau modeset=0 | sudo tee -a /etc/modprobe.d/nouveau-kms.conf
+sudo update-initramfs -u
+sudo reboot 
+```
+
+* Some other annoying thing we have to do
+
+sudo apt-get install -y linux-image-extra-virtual
+sudo reboot
+
+* Install latest Linux headers
+
+sudo apt-get install -y linux-source linux-headers-`uname -r` 
+
 * Tensorflow binary packages for GPU version works best(rather only works) with Cuda Toolkit 7.5 and cuDNN v5.1. To install the toolkit:
 
 ```
