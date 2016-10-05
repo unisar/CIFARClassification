@@ -27,16 +27,17 @@ sudo ./NVIDIA-Linux-x86_64-361.28.run
 
 * You can get cuDNN here: https://developer.nvidia.com/compute/machine-learning/cudnn/secure/v5.1/prod/7.5/cudnn-7.5-linux-x64-v5.1-tgz
 
-* Install PIP 
-# Ubuntu/Linux 64-bit
+* Install PIP: Ubuntu/Linux 64-bit
+
 sudo apt-get install python-pip python-dev
 
-* # Ubuntu/Linux 64-bit, GPU enabled, Python 2.7
-# Requires CUDA toolkit 7.5 and CuDNN v5.1
+* Ubuntu/Linux 64-bit, GPU enabled, Python 2.7. Requires CUDA toolkit 7.5 and CuDNN v5.1
+
 export TF_BINARY_URL=https://storage.googleapis.com/tensorflow/linux/gpu/tensorflow-0.11.0rc0-cp27-none-linux_x86_64.whl
 
-* # Python 2
-$ sudo pip install --upgrade $TF_BINARY_U
+* Python 2
+
+sudo pip install --upgrade $TF_BINARY_U
 
 And then.. test your installation...
 
