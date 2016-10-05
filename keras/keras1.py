@@ -16,17 +16,7 @@ from keras.utils import np_utils
 from keras.regularizers import l2, activity_l2
 import pandas as pd
 
-
-X_train = np.load('./data/X_large_train_1.npy')   
-y_train = np.genfromtxt('./data/y_train.txt')
-#X_train = pd.DataFrame(X_train)
-#y_train = pd.Series(y_train)
-
-
 '''
-X_test = np.load('./X_large_test_1.npy')   
-y_test = np.genfromtxt('./y_large_test.txt')
-
 X_train = np.load('./X_large_train_1.npy')   
 y_train = np.genfromtxt('./y_large_train.txt')
 
@@ -36,28 +26,36 @@ y_test = np.genfromtxt('./y_large_test.txt')
 print (X_test.shape)
 print ("X_test shape")
 print ("X_test and y_test lengths: %i %i respectively",(X_test.shape,y_test.shape))
-'''
-
 X_train,X_test,y_train,y_test = train_test_split(X_train, y_train, test_size=0.1, random_state=42, stratify=y_train)
+X_train,X_val,y_train,y_val = train_test_split(X_train, y_train, test_size=0.1, random_state=42, stratify=y_train)
+'''
+X_train = np.load('./npys/X_large_train_subset_10000.npy')   
+y_train = np.genfromtxt('./data/y_large_train_subset_10000.txt')
 
-batch_size = 125
+#X_test = np.load('./X_small_test_1.npy')   
+#y_test = np.genfromtxt('../data/y_small_test.txt')
+X_train,X_test,y_train,y_test = train_test_split(X_train, y_train, test_size=0.1, random_state=42)
+
+
+print (X_test.shape)
+print ("X_test shape")
+print ("X_test and y_test lengths: %i %i respectively",(X_test.shape,y_test.shape))
+
+batch_size = 50
 nb_classes = 10
-nb_epoch = 200
-data_augmentation = True
+nb_epoch = 100
+data_augmentation = False
 
 # input image dimensions
 img_rows, img_cols = 32, 32
 # the CIFAR10 images are RGB
 img_channels = 3
 
-print (y_train)
-print ("Y_train:")
 # convert class vectors to binary class matrices
+y_train = y_train.astype(int)
+y_test = y_test.astype(int)
 y_train = np_utils.to_categorical(y_train, nb_classes)
 y_test = np_utils.to_categorical(y_test, nb_classes)
-print (y_train)
-print ("Y_train after:")
-
 
 model = Sequential()
 
@@ -66,47 +64,30 @@ model.add(Convolution2D(32, 3, 3,border_mode='same',input_shape=X_train.shape[1:
 model.add(Activation('relu'))
 model.add(MaxPooling2D(pool_size=(2,2),strides=(1,1)))
 
-'''
-model.add(Convolution2D(32, 3, 3))
-model.add(Activation('relu'))
-model.add(MaxPooling2D(pool_size=(2,2),strides=(1,1)))
-'''
 
 model.add(Convolution2D(64, 3, 3))
 model.add(Activation('relu'))
 model.add(MaxPooling2D(pool_size=(2,2),strides=(1,1)))
 
-'''
-model.add(Convolution2D(64, 3, 3))
-model.add(Activation('relu'))
-model.add(MaxPooling2D(pool_size=(2,2),strides=(1,1)))
-'''
 
 model.add(Convolution2D(128, 3, 3))
 model.add(Activation('relu'))
 model.add(MaxPooling2D(pool_size=(2,2),strides=(1,1)))
 
-'''
-model.add(Convolution2D(128, 3, 3))
+
+model.add(Convolution2D(256, 3, 3))
 model.add(Activation('relu'))
 model.add(MaxPooling2D(pool_size=(2,2),strides=(1,1)))
-'''
 
-'''
-model.add(Convolution2D(32, 5, 5))
+model.add(Convolution2D(512, 3, 3))
 model.add(Activation('relu'))
+model.add(MaxPooling2D(pool_size=(2,2),strides=(1,1)))
 
 
-model.add(Convolution2D(64, 3, 3))
-model.add(Activation('relu'))
-model.add(Convolution2D(32, 3, 3))
-model.add(Activation('relu'))
-model.add(MaxPooling2D(pool_size=(2,2)))
-'''
 model.add(Flatten())
-model.add(Dense(1024))
-model.add(Activation('relu'))
-model.add(Dense(1024))
+model.add(Dense(4096))
+model.add(Dense(4096))
+model.add(Dense(1000))
 model.add(Activation('relu'))
 model.add(Dropout(0.5))
 model.add(Dense(nb_classes))
@@ -123,7 +104,7 @@ if not data_augmentation:
     model.fit(X_train, y_train,
               batch_size=batch_size,
               nb_epoch=nb_epoch,
-              validation_data=(X_test, y_test),
+              validation_split=0.33,
               shuffle=True)
 else:
     print('Using real-time data augmentation.')
@@ -132,13 +113,13 @@ else:
     datagen = ImageDataGenerator(
         featurewise_center=False,  # set input mean to 0 over the dataset
         samplewise_center=False,  # set each sample mean to 0
-        featurewise_std_normalization=True,  # divide inputs by std of the dataset
+        featurewise_std_normalization=False,  # divide inputs by std of the dataset
         samplewise_std_normalization=False,  # divide each input by its std
         zca_whitening=False,  # apply ZCA whitening
         rotation_range=0,  # randomly rotate images in the range (degrees, 0 to 180)
         width_shift_range=0,  # randomly shift images horizontally (fraction of total width)
         height_shift_range=0,  # randomly shift images vertically (fraction of total height)
-        horizontal_flip=True,  # randomly flip images
+        horizontal_flip=False,  # randomly flip images
         vertical_flip=False)  # randomly flip images
 
     # compute quantities required for featurewise normalization
@@ -150,7 +131,7 @@ else:
                         batch_size=batch_size),
                         samples_per_epoch=X_train.shape[0],
                         nb_epoch=nb_epoch,
-                        validation_data=(X_test, y_test))
+                        )
 
 
 score = model.evaluate(X_test, y_test, verbose=1)
@@ -159,6 +140,8 @@ print('Test accuracy:', score[1])
 thefile = open('./outputscores.txt', 'w')
 for item in score:
   thefile.write("%s\n" % item)
+
+
 
 
 
