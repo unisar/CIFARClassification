@@ -61,6 +61,12 @@ tar -xzf cudnn-7.5-linux-x64-v5.1.tgz
 sudo cp cuda/lib64/* /usr/local/cuda/lib64
 sudo cp cuda/include/cudnn.h /usr/local/cuda/include/
 ```
+* Export the CUDA Libraries:
+```
+export CUDA_HOME=/usr/local/cuda-7.5
+export LD_LIBRARY_PATH=${CUDA_HOME}/lib64:$LD_LIBRARY_PATH
+export PATH=${CUDA_HOME}/bin:${PATH}
+```
 
 * Install PIP: Ubuntu/Linux 64-bit
 
