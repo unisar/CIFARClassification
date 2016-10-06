@@ -130,7 +130,7 @@ for i in range(noOfIterations):
     if random.random() < .5:
         X_batch = np.fliplr(X_batch)
         y_batch = np.flipud(y_batch)
-    feed_dict = {tfx:X_batch,tfy:y_batch,kp0:0.2,kp3:0.5,kp6:0.5,lr:learning_rate}
+    feed_dict = {tfx:X_batch,tfy:y_batch,kp0:0.8,kp3:0.5,kp6:0.5,lr:learning_rate}
     _, l, predictions = sess.run([optimizer, loss, prediction], feed_dict=feed_dict)
 
     if (i % 100 == 0):
