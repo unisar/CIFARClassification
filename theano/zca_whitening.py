@@ -44,4 +44,6 @@ zca = ZCA()
 output = zca.fit_transform(flattened,10**-5)
 output = output.reshape((shape[0],shape[1],shape[2],shape[3]))
 
+output = (output-np.mean(output))/np.std(output)
+
 np.save('X_train_zca', output)
