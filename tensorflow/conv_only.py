@@ -18,6 +18,9 @@ X_train, X_test, y_train, y_test = train_test_split(input, labels, test_size=0.1
 y_train = one_hot(y_train)
 y_test = one_hot(y_test)
 
+X_full = np.load('X_test_zca.npy')
+X_full = X_full.transpose(0,2,3,1)
+
 noOfIterations = 180000
 image_size = 24
 num_channels = 3
@@ -37,10 +40,6 @@ def bias_variable(shape):
 
 def conv2d(x, W, stride=[1,1,1,1],pad='SAME'):
     return tf.nn.conv2d(x, W, strides=stride, padding=pad)
-
-def accuracy(predictions, labels):
-    return (100.0 * np.sum(np.argmax(predictions, 1) == np.argmax(labels, 1))
-            / predictions.shape[0])
 
 tfx = tf.placeholder(tf.float32, shape=[None,image_size,image_size,num_channels])
 tfy = tf.placeholder(tf.float32, shape=[None,num_labels])
@@ -96,7 +95,10 @@ lastLayer = tf.matmul(reshape, w10) + b10
 loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(lastLayer,tfy))
 lr = tf.placeholder(tf.float32)
 optimizer = tf.train.GradientDescentOptimizer(lr).minimize(loss)
-prediction=tf.nn.softmax(lastLayer)
+prediction = tf.nn.softmax(lastLayer)
+correct_prediction = tf.equal(tf.argmax(prediction,1), tf.argmax(tfy,1))
+accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
+
 
 model_saver = tf.train.Saver({  'w1': w1, 'b1': b1,
                                 'w2': w2, 'b2': b2,
@@ -131,16 +133,22 @@ for i in range(noOfIterations):
         X_batch = np.fliplr(X_batch)
         y_batch = np.flipud(y_batch)
     feed_dict = {tfx:X_batch,tfy:y_batch,kp0:0.8,kp3:0.5,kp6:0.5,lr:learning_rate}
-    _, l, predictions = sess.run([optimizer, loss, prediction], feed_dict=feed_dict)
+    _ = sess.run(optimizer, feed_dict=feed_dict)
 
     if (i % 100 == 0):
         test_accuracies = []
         for j in range(0,X_test.shape[0],batch_size):
             feed_dict={tfx:X_test[j:j+batch_size,4:28,4:28,:],tfy:y_test[j:j+batch_size,:],kp0:1.0,kp3:1.0,kp6:1.0}
-            l, predictions = sess.run([loss, prediction], feed_dict=feed_dict)
-            test_accuracies.append(accuracy(predictions,y_test[j:j+batch_size,:]))
-        print 'iteration %i test accuracy: %.1f%%' % (i, np.mean(test_accuracies))
+            test_accuracies.append(sess.run(accuracy, feed_dict=feed_dict)*100)
+        print 'iteration %i test accuracy: %.4f%%' % (i, np.mean(test_accuracies))
         
-    if (i % 5000 == 0):
+    if (i % 10000 == 0):
+        preds = []
+        for j in range(0,X_full.shape[0],batch_size):
+            feed_dict={tfx:X_full[j:j+batch_size,4:28,4:28,:],kp0:1.0,kp3:1.0,kp6:1.0}
+            p = sess.run(prediction, feed_dict=feed_dict)
+            preds.append(np.argmax(p, 1))
+        pred = np.concatenate(preds)
+        np.savetxt('prediction.txt',pred,fmt='%.0f')
         print "Saving the model"
         model_saver.save(sess, 'model.ckpt')
