@@ -22,11 +22,12 @@ X_full = np.load('X_test_zca.npy')
 X_full = X_full.transpose(0,2,3,1)
 
 noOfIterations = 180000
-image_size = 24
+image_size = 32
 num_channels = 3
 num_labels=10
 batch_size = 100
 patch_size = 3
+regularization = 0.001
 
 sess = tf.InteractiveSession()
 
@@ -86,31 +87,21 @@ w9 = tf.Variable(weight_variable([1,1,192,10]))
 b9 =  tf.Variable(bias_variable([10]))
 l9 = tf.nn.elu(conv2d(l8, w9, [1,1,1,1]) + b9)
 
-avg = tf.nn.avg_pool(l9,[1,6,6,1],[1,1,1,1],'VALID')
+avg = tf.nn.avg_pool(l9,[1,8,8,1],[1,1,1,1],'VALID')
 reshape = tf.reshape(avg, [-1, 10])
 w10 = tf.Variable(weight_variable([10, num_labels]))
 b10 = tf.Variable(bias_variable([num_labels]))
 lastLayer = tf.matmul(reshape, w10) + b10
 
-loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(lastLayer,tfy))
+loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(lastLayer,tfy) + 
+    regularization * (tf.nn.l2_loss(w1) + tf.nn.l2_loss(w2) + tf.nn.l2_loss(w3) +
+    tf.nn.l2_loss(w4) + tf.nn.l2_loss(w5) + tf.nn.l2_loss(w6) + tf.nn.l2_loss(w7) + 
+    tf.nn.l2_loss(w8) + tf.nn.l2_loss(w9) + tf.nn.l2_loss(w10)))
 lr = tf.placeholder(tf.float32)
 optimizer = tf.train.GradientDescentOptimizer(lr).minimize(loss)
 prediction = tf.nn.softmax(lastLayer)
 correct_prediction = tf.equal(tf.argmax(prediction,1), tf.argmax(tfy,1))
 accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
-
-
-model_saver = tf.train.Saver({  'w1': w1, 'b1': b1,
-                                'w2': w2, 'b2': b2,
-                                'w3': w3, 'b3': b3,
-                                'w4': w4, 'b4': b4,
-                                'w5': w5, 'b5': b5,
-                                'w6': w6, 'b6': b6,
-                                'w7': w7, 'b7': b7, 
-                                'w8': w8, 'b8': b8,
-                                'w9': w9, 'b9': b9,
-                                'w10': w10, 'b10': b10
-                            })
 
 # Add an op to initialize the variables.
 init_op = tf.initialize_all_variables()
@@ -125,9 +116,17 @@ for i in range(noOfIterations):
     if i==150000:
         learning_rate = 0.0001
     indices = np.random.permutation(X_train.shape[0])[:batch_size]
-    crop1 = np.random.randint(0,8)
-    crop2 = np.random.randint(0,8)
-    X_batch = X_train[indices,crop1:crop1+24,crop2:crop2+24,:]
+    X_batch = X_train[indices,:,:,:]
+    crop1 = np.random.randint(-5,6)
+    crop2 = np.random.randint(-5,6)
+    if crop1 > 0:
+        X_batch = np.concatenate((X_batch[:,crop1:,:,:],np.zeros(batch_size,crop1,image_size,num_channels)),axis=1)
+    elif crop1 < 0:
+        X_batch = np.concatenate((np.zeros(batch_size,crop1,image_size,num_channels),X_batch[:,:crop1,:,:]),axis=1)
+    if crop2 > 0:
+        X_batch = np.concatenate((X_batch[:,:,crop2:,:],np.zeros(batch_size,image_size,crop2,num_channels)),axis=2)
+    elif crop2 < 0:
+        X_batch = np.concatenate((np.zeros(batch_size,image_size,crop2,num_channels),X_batch[:,:,:crop2,:]),axis=2)   
     y_batch = y_train[indices,:]
     if random.random() < .5:
         X_batch = np.fliplr(X_batch)
@@ -138,17 +137,15 @@ for i in range(noOfIterations):
     if (i % 100 == 0):
         test_accuracies = []
         for j in range(0,X_test.shape[0],batch_size):
-            feed_dict={tfx:X_test[j:j+batch_size,4:28,4:28,:],tfy:y_test[j:j+batch_size,:],kp0:1.0,kp3:1.0,kp6:1.0}
+            feed_dict={tfx:X_test[j:j+batch_size,:,:,:],tfy:y_test[j:j+batch_size,:],kp0:1.0,kp3:1.0,kp6:1.0}
             test_accuracies.append(sess.run(accuracy, feed_dict=feed_dict)*100)
         print 'iteration %i test accuracy: %.4f%%' % (i, np.mean(test_accuracies))
         
     if (i % 10000 == 0):
         preds = []
         for j in range(0,X_full.shape[0],batch_size):
-            feed_dict={tfx:X_full[j:j+batch_size,4:28,4:28,:],kp0:1.0,kp3:1.0,kp6:1.0}
+            feed_dict={tfx:X_full[j:j+batch_size,:,:,:],kp0:1.0,kp3:1.0,kp6:1.0}
             p = sess.run(prediction, feed_dict=feed_dict)
             preds.append(np.argmax(p, 1))
         pred = np.concatenate(preds)
         np.savetxt('prediction.txt',pred,fmt='%.0f')
-        print "Saving the model"
-        model_saver.save(sess, 'model.ckpt')
