@@ -120,13 +120,13 @@ for i in range(noOfIterations):
     crop1 = np.random.randint(-5,6)
     crop2 = np.random.randint(-5,6)
     if crop1 > 0:
-        X_batch = np.concatenate((X_batch[:,crop1:,:,:],np.zeros(batch_size,crop1,image_size,num_channels)),axis=1)
+        X_batch = np.concatenate((X_batch[:,crop1:,:,:],np.zeros((batch_size,crop1,image_size,num_channels))),axis=1)
     elif crop1 < 0:
-        X_batch = np.concatenate((np.zeros(batch_size,crop1,image_size,num_channels),X_batch[:,:crop1,:,:]),axis=1)
+        X_batch = np.concatenate((np.zeros((batch_size,-crop1,image_size,num_channels)),X_batch[:,:crop1,:,:]),axis=1)
     if crop2 > 0:
-        X_batch = np.concatenate((X_batch[:,:,crop2:,:],np.zeros(batch_size,image_size,crop2,num_channels)),axis=2)
+        X_batch = np.concatenate((X_batch[:,:,crop2:,:],np.zeros((batch_size,image_size,crop2,num_channels))),axis=2)
     elif crop2 < 0:
-        X_batch = np.concatenate((np.zeros(batch_size,image_size,crop2,num_channels),X_batch[:,:,:crop2,:]),axis=2)   
+        X_batch = np.concatenate((np.zeros((batch_size,image_size,-crop2,num_channels)),X_batch[:,:,:crop2,:]),axis=2)   
     y_batch = y_train[indices,:]
     if random.random() < .5:
         X_batch = np.fliplr(X_batch)
