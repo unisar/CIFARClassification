@@ -15,8 +15,7 @@ The following preprocessing was applied to each image before sending to our clas
 
 ## Model Description
 We used a convolutional neural network as our image classifier due to the proven effectiveness of these models
-for image recognition tasks. We used the following architecture/features for our network:
-- 
+for image recognition tasks. We used the following architecture/features for our network: 
 
 ## Runtime Environment
 We built our final model in TensorFlow because it provided the most functionality in terms of out-of-the-box
@@ -29,6 +28,4 @@ For instructions on how to setup TensorFlow on AWS, see
 [TensorFlow on AWS Instructions](https://github.com/eds-uga/eatingnails-project3/blob/master/tensorflow_on_aws.md).
 Once your environment has been setup, run the following:
 
-- python preprocessing.py <path to X_train.txt> <path to X_test.txt> <optional: 1 to enable ZCA whitening>
-**Note that ZCA requires theano and scipy to be installed**
--
+- python preprocessing.py *path to X_train.txt* *path to X_test.txt* *optional: 1 to enable ZCA whitening (requires theano and scipy)*
