@@ -28,4 +28,4 @@ For instructions on how to setup TensorFlow on AWS, see
 [TensorFlow on AWS Instructions](https://github.com/eds-uga/eatingnails-project3/blob/master/tensorflow_on_aws.md).
 Once your environment has been setup, run the following:
 
-- python preprocessing.py *path to X_train.txt* *path to X_test.txt* *optional: 1 to enable ZCA whitening (requires theano and scipy)*
+- python preprocessing.py \<path to X_train.txt\> \<path to X_test.txt\> \<optional: 1 to enable ZCA whitening (requires theano and scipy)\>
