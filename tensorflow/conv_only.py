@@ -28,6 +28,7 @@ num_labels=10
 batch_size = 100
 patch_size = 3
 regularization = 0.001
+open('accuracy.txt', 'w').close()
 
 sess = tf.InteractiveSession()
 
@@ -140,6 +141,8 @@ for i in range(noOfIterations):
             feed_dict={tfx:X_test[j:j+batch_size,:,:,:],tfy:y_test[j:j+batch_size,:],kp0:1.0,kp3:1.0,kp6:1.0}
             test_accuracies.append(sess.run(accuracy, feed_dict=feed_dict)*100)
         print 'iteration %i test accuracy: %.4f%%' % (i, np.mean(test_accuracies))
+        with open("accuracy.txt", "a") as f:
+            f.write('iteration %i test accuracy: %.4f%%\n' % (i, np.mean(test_accuracies)))
         
     if (i % 10000 == 0):
         preds = []
