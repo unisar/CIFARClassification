@@ -11,7 +11,6 @@
  features, haralick features, and local binary patterns
  - initial modeling and testing in Tensorflow and Keras
  - initial exploration of TensorFlow setup in AWS
- - exploration and application of multi-GPU framework in TensorFlow
  - extensive tuning and testing of convolutional network models
 
 ###Usman Nisar
