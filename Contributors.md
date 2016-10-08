@@ -2,6 +2,7 @@
 
 ###Shang Gao
  - initial modeling and testing in Theano
+ - image preprocessing scripts
  - implementation and testing of various features and techniques related to convolutional neural networks including but
  not limited to batch normalization, residual deep learning, orthogonal weight initialization, and exponential linear units
  - extensive tuning and testing of convolutional network models
