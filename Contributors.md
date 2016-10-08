@@ -7,9 +7,10 @@
  - extensive tuning and testing of convolutional network models
  
 ###Narita Pandhe
- - initial modeling and testing in Tensorflow and Keras
  - exploration of traditional image processing and machine learning techniques on CIFAR 10 including but not limited to SURF/SIFT
  features, haralick features, and local binary patterns
+ - initial modeling and testing in Tensorflow and Keras
+ - initial exploration of TensorFlow setup in AWS
  - exploration and application of multi-GPU framework in TensorFlow
  - extensive tuning and testing of convolutional network models
 
