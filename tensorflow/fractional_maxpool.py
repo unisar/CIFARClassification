@@ -29,7 +29,7 @@ batch_size = 100
 patch_size = 3
 open('accuracy.txt', 'w').close()
 
-sess = tf.InteractiveSession(config=tf.ConfigProto(allow_soft_placement=True, log_device_placement=True))
+sess = tf.InteractiveSession()
 
 def weight_variable(shape):
     initial = tf.truncated_normal(shape, stddev=0.05)
@@ -49,50 +49,43 @@ def fmaxpool(x):
 tfx = tf.placeholder(tf.float32, shape=[None,image_size,image_size,num_channels])
 tfy = tf.placeholder(tf.float32, shape=[None,num_labels])
 
-w1 = tf.Variable(weight_variable([3,3,3,96]))
-b1 = tf.Variable(bias_variable([96]))
+w1 = tf.Variable(weight_variable([3,3,3,64]))
+b1 = tf.Variable(bias_variable([64]))
 l1 = tf.nn.elu(conv2d(tfx,w1) + b1)
+mp1 = fmaxpool(l1)
 
-w2 = tf.Variable(weight_variable([3,3,96,96]))
-b2 = tf.Variable(bias_variable([96]))
-l2 = tf.nn.elu(conv2d(l1, w2) + b2)
+w2 = tf.Variable(weight_variable([3,3,64,92]))
+b2 = tf.Variable(bias_variable([92]))
+l2 = tf.nn.elu(conv2d(mp1, w2) + b2)
 mp2 = fmaxpool(l2)
 
-w3 = tf.Variable(weight_variable([3,3,96,140]))
-b3 =  tf.Variable(bias_variable([140]))
+w3 = tf.Variable(weight_variable([3,3,92,135]))
+b3 =  tf.Variable(bias_variable([135]))
 l3 = tf.nn.elu(conv2d(mp2, w3) + b3)
+mp3 = fmaxpool(l3)
 
-w4 = tf.Variable(weight_variable([3,3,140,140]))
-b4 =  tf.Variable(bias_variable([140]))
-l4 = tf.nn.elu(conv2d(l3, w4) + b4)
+w4 = tf.Variable(weight_variable([3,3,135,192]))
+b4 =  tf.Variable(bias_variable([192]))
+l4 = tf.nn.elu(conv2d(mp3, w4) + b4)
 mp4 = fmaxpool(l4)
 
-w5 = tf.Variable(weight_variable([3,3,140,200]))
-b5 =  tf.Variable(bias_variable([200]))
+w5 = tf.Variable(weight_variable([2,2,192,192]))
+b5 =  tf.Variable(bias_variable([192]))
 l5 = tf.nn.elu(conv2d(mp4, w5) + b5)
 
-w6 = tf.Variable(weight_variable([3,3,200,200]))
-b6 =  tf.Variable(bias_variable([200]))
+w6 = tf.Variable(weight_variable([1,1,192,192]))
+b6 =  tf.Variable(bias_variable([192]))
 l6 = tf.nn.elu(conv2d(l5, w6) + b6)
-mp6 = fmaxpool(l6)
 
-w7 = tf.Variable(weight_variable([3,3,200,256]))
-b7 =  tf.Variable(bias_variable([256]))
-l7 = tf.nn.elu(conv2d(mp6, w7) + b7)
+w7 = tf.Variable(weight_variable([1,1,192,10]))
+b7 =  tf.Variable(bias_variable([10]))
+l7 = tf.nn.elu(conv2d(l6, w7) + b7)
 
-w8 = tf.Variable(weight_variable([1,1,256,256]))
-b8 =  tf.Variable(bias_variable([256]))
-l8 = tf.nn.elu(conv2d(l7, w8) + b8)
-
-w9 = tf.Variable(weight_variable([1,1,256,10]))
-b9 =  tf.Variable(bias_variable([10]))
-l9 = tf.nn.elu(conv2d(l8, w9) + b9)
-
-avg = tf.nn.avg_pool(l9,[1,10,10,1],[1,1,1,1],'VALID')
+avg = tf.nn.avg_pool(l7,[1,6,6,1],[1,1,1,1],'VALID')
 reshape = tf.reshape(avg, [-1, 10])
-w10 = tf.Variable(weight_variable([10, num_labels]))
-b10 = tf.Variable(bias_variable([num_labels]))
-lastLayer = tf.matmul(reshape, w10) + b10
+w8 = tf.Variable(weight_variable([10, num_labels]))
+b8 = tf.Variable(bias_variable([num_labels]))
+lastLayer = tf.matmul(reshape, w8) + b8
 
 loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(lastLayer,tfy))
 optimizer = tf.train.AdamOptimizer(0.001).minimize(loss)
