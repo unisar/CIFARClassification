@@ -119,7 +119,7 @@ for i in range(noOfIterations):
     l,_ = sess.run([loss,optimizer], feed_dict=feed_dict)
     print 'iteration %i loss: %.4f' % (i, l)
     with open("accuracy.txt", "a") as f:
-        f.write('iteration %i loss: %.4f%%\n' % (i, l))
+        f.write('iteration %i loss: %.4f\n' % (i, l))
 
     if ((i+1) % 10000 == 0):
         test_accuracies = []
