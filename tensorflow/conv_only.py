@@ -110,12 +110,8 @@ init_op = tf.initialize_all_variables()
 sess.run(init_op)
 learning_rate = 0.1
 for i in range(noOfIterations):
-    if i==100000:
-        learning_rate = 0.01
-    if i==125000:
-        learning_rate = 0.001
-    if i==150000:
-        learning_rate = 0.0001
+    if (i+1) % 200 == 0:
+        learning_rate *= .99
     indices = np.random.permutation(X_train.shape[0])[:batch_size]
     X_batch = X_train[indices,:,:,:]
     crop1 = np.random.randint(-5,6)
