@@ -21,7 +21,7 @@ y_test = one_hot(y_test)
 X_full = np.load('X_test_zca.npy')
 X_full = X_full.transpose(0,2,3,1)
 
-noOfIterations = 180000
+noOfIterations = 180005
 image_size = 32
 num_channels = 3
 num_labels=10
@@ -39,11 +39,11 @@ def bias_variable(shape):
     initial = tf.constant(0.01, shape=shape)
     return initial
 
-def conv2d(x, W, stride=[1,1,1,1],pad='VALID'):
+def conv2d(x, W, stride=[1,1,1,1],pad='SAME'):
     return tf.nn.conv2d(x, W, strides=stride, padding=pad)
 	
-def fmaxpool(x, ratio=[1.0, 1.25, 1.25, 1.0]):
-    h_pool, rows, cols = tf.nn.fractional_max_pool(x,ratio,True,True)
+def fmaxpool(x):
+    h_pool, rows, cols = tf.nn.fractional_max_pool(x,[1.0, 1.44, 1.44, 1.0],True,True)
     return h_pool
     
 def accuracy(predictions, labels):
@@ -53,56 +53,46 @@ def accuracy(predictions, labels):
 tfx = tf.placeholder(tf.float32, shape=[None,image_size,image_size,num_channels])
 tfy = tf.placeholder(tf.float32, shape=[None,num_labels])
 
-w1 = tf.Variable(weight_variable([2,2,3,100]))
+w1 = tf.Variable(weight_variable([3,3,3,100]))
 b1 = tf.Variable(bias_variable([100]))
 l1 = tf.nn.elu(conv2d(tfx,w1) + b1)
 mp1 = fmaxpool(l1)
 
-w2 = tf.Variable(weight_variable([2,2,100,133]))
-b2 = tf.Variable(bias_variable([133]))
+w2 = tf.Variable(weight_variable([3,3,100,144]))
+b2 = tf.Variable(bias_variable([144]))
 l2 = tf.nn.elu(conv2d(mp1, w2) + b2)
 mp2 = fmaxpool(l2)
 
-w3 = tf.Variable(weight_variable([2,2,133,178]))
-b3 =  tf.Variable(bias_variable([178]))
+w3 = tf.Variable(weight_variable([3,3,144,205]))
+b3 =  tf.Variable(bias_variable([205]))
 l3 = tf.nn.elu(conv2d(mp2, w3) + b3)
 mp3 = fmaxpool(l3)
 
-w4 = tf.Variable(weight_variable([2,2,178,246]))
-b4 =  tf.Variable(bias_variable([246]))
+w4 = tf.Variable(weight_variable([3,3,205,300]))
+b4 =  tf.Variable(bias_variable([300]))
 l4 = tf.nn.elu(conv2d(mp3, w4) + b4)
 mp4 = fmaxpool(l4)
 
-w5 = tf.Variable(weight_variable([2,2,246,356]))
-b5 =  tf.Variable(bias_variable([356]))
+w5 = tf.Variable(weight_variable([3,3,300,300]))
+b5 =  tf.Variable(bias_variable([300]))
 l5 = tf.nn.elu(conv2d(mp4, w5) + b5)
-mp5 = fmaxpool(l5)
 
-w6 = tf.Variable(weight_variable([2,2,356,533]))
-b6 =  tf.Variable(bias_variable([533]))
-l6 = tf.nn.elu(conv2d(mp5, w6) + b6)
-mp6 = fmaxpool(l6)
+w6 = tf.Variable(weight_variable([1,1,300,300]))
+b6 =  tf.Variable(bias_variable([300]))
+l6 = tf.nn.elu(conv2d(l5, w6) + b6)
 
-w7 = tf.Variable(weight_variable([2,2,533,800]))
-b7 =  tf.Variable(bias_variable([800]))
-l7 = tf.nn.elu(conv2d(mp6, w7) + b7)
-mp7 = fmaxpool(l7)
+w7 = tf.Variable(weight_variable([1,1,300,25]))
+b7 =  tf.Variable(bias_variable([25]))
+l7 = tf.nn.elu(conv2d(l6, w7) + b7)
 
-w8 = tf.Variable(weight_variable([2,2,800,1600]))
-b8 =  tf.Variable(bias_variable([1600]))
-l8 = tf.nn.elu(conv2d(mp7, w8) + b8)
-
-w9 = tf.Variable(weight_variable([1,1,1600,1600]))
-b9 = tf.Variable(bias_variable([1600]))
-l9 = tf.nn.elu(conv2d(l8, w9) + b9)
-
-reshape = tf.reshape(l9, [-1, 1600])
-w10 = tf.Variable(weight_variable([1600, num_labels]))
-b10 = tf.Variable(bias_variable([num_labels]))
-lastLayer = tf.matmul(reshape, w10) + b10
+avg = tf.nn.avg_pool(l7,[1,6,6,1],[1,1,1,1],'VALID')
+reshape = tf.reshape(avg, [-1, 25])
+w8 = tf.Variable(weight_variable([25, num_labels]))
+b8 = tf.Variable(bias_variable([num_labels]))
+lastLayer = tf.matmul(reshape, w8) + b8
 
 loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(lastLayer,tfy))
-optimizer = tf.train.AdamOptimizer(0.00002).minimize(loss)
+optimizer = tf.train.AdamOptimizer(0.0001).minimize(loss)
 prediction = tf.nn.softmax(lastLayer)
 
 # Add an op to initialize the variables.

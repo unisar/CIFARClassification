@@ -130,8 +130,7 @@ for i in range(noOfIterations):
         X_batch = np.concatenate((np.zeros((batch_size,image_size,-crop2,num_channels)),X_batch[:,:,:crop2,:]),axis=2)   
     y_batch = y_train[indices,:]
     if random.random() < .5:
-        X_batch = np.fliplr(X_batch)
-        y_batch = np.flipud(y_batch)
+        X_batch = X_batch[:,:,::-1,:]
     feed_dict = {tfx:X_batch,tfy:y_batch,kp0:0.8,kp3:0.5,kp6:0.5,lr:learning_rate}
     _ = sess.run(optimizer, feed_dict=feed_dict)
 
