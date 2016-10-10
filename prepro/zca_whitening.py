@@ -3,6 +3,10 @@ import theano
 import theano.tensor as T
 import numpy as np
 
+'''
+https://github.com/sdanaipat/Theano-ZCA
+'''
+
 class ZCA(object):
     def __init__(self):
         X_in = T.matrix('X_in')
@@ -35,13 +39,28 @@ class ZCA(object):
         self.fit(X)
         return self.transform(X, eps)
         
-        
-input = np.load('X_train.npy')
-shape = input.shape
-flattened = input.reshape(shape[0],np.prod(shape[1:]))
+X_train = np.load('X_train.npy')
+X_train_shape = X_train.shape
+X_train_flattened = X_train.reshape(X_train_shape[0],np.prod(X_train_shape[1:]))
+
+X_test = np.load('X_test.npy')
+X_test_shape = X_test.shape
+X_test_flattened = X_test.reshape(X_test_shape[0],np.prod(X_test_shape[1:]))
+
+X = np.concatenate((X_train_flattened,X_test_flattened))
 
 zca = ZCA()
-output = zca.fit_transform(flattened,10**-5)
-output = output.reshape((shape[0],shape[1],shape[2],shape[3]))
+output = zca.fit_transform(X,10**-5)
+X_train_output = output[:X_train_shape[0]]
+X_test_output = output[X_train_shape[0]:]
 
-np.save('X_train_zca', output)
+X_train_output = X_train_output.reshape((X_train_shape[0],X_train_shape[1],X_train_shape[2],X_train_shape[3]))
+X_test_output = X_test_output.reshape((X_test_shape[0],X_test_shape[1],X_test_shape[2],X_test_shape[3]))
+
+print "X_train shape"
+print X_train_output.shape
+print "X_test shape:"
+print X_test_output.shape
+
+np.save('X_train_zca', X_train_output)
+np.save('X_test_zca', X_test_output)

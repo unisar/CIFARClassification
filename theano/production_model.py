@@ -3,34 +3,45 @@ import theano
 import theano.tensor as T
 from theano.tensor.nnet import conv2d
 from theano.tensor.signal import downsample
+from theano.sandbox.rng_mrg import MRG_RandomStreams as RandomStreams
 import sys
 import glob
 import matplotlib.pyplot as plt
 from sklearn.cross_validation import train_test_split
+import random
 
-input = np.load('X_train.npy')   
-labels = np.genfromtxt('../data/y_train.txt')
+srng = RandomStreams()
 
-X_train, X_test, y_train, y_test = train_test_split(input, labels, test_size=0.1, random_state=42, stratify=labels)
+X_train = np.load('X_train_zca.npy')   
+y_train = np.genfromtxt('../data/y_train.txt')
+X_test = np.load('X_test_zca.npy')
 
 convolutional_layers = 6
-feature_maps = [3,20,20,80,80,320,320]
+feature_maps = [3,80,80,160,160,320,320]
 filter_shapes = [(3,3),(3,3),(3,3),(3,3),(3,3),(3,3)]
+image_shapes = [(24,24),(24,24),(12,12),(12,12),(6,6),(6,6)]
 feedforward_layers = 1
 feedforward_nodes = [2000]
 classes = 10
-image_shape = (32,32)
 
 class convolutional_layer(object):
-    def __init__(self, input, output_maps, input_maps, filter_height, filter_width, maxpool=None):
+    def __init__(self, input, output_maps, input_maps, filter_height, filter_width, image_shape, maxpool=None):
         self.input = input
-        self.bound = np.sqrt(6./(input_maps*filter_height*filter_width + output_maps*filter_height*filter_width))
-        self.w = theano.shared(np.asarray(np.random.uniform(low=-self.bound,high=self.bound,size=(output_maps, input_maps, filter_height, filter_width)),dtype=input.dtype))
-        self.b = theano.shared(np.asarray(np.random.uniform(low=-.5, high=.5, size=(output_maps)),dtype=input.dtype))
+        self.w = theano.shared(self.ortho_weights(output_maps,input_maps,filter_height,filter_width),borrow=True)
+        self.b = theano.shared(np.zeros((output_maps,), dtype=theano.config.floatX),borrow=True)
         self.conv_out = conv2d(input=self.input, filters=self.w, border_mode='half')
         if maxpool:
             self.conv_out = downsample.max_pool_2d(self.conv_out, ds=maxpool, ignore_border=True)
         self.output = T.tanh(self.conv_out + self.b.dimshuffle('x', 0, 'x', 'x'))
+    def ortho_weights(self,chan_out,chan_in,filter_h,filter_w):
+        bound = np.sqrt(6./(chan_in*filter_h*filter_w + chan_out*filter_h*filter_w))
+        W = np.random.random((chan_out, chan_in * filter_h * filter_w))
+        u, s, v = np.linalg.svd(W,full_matrices=False)
+        if u.shape[0] != u.shape[1]:
+            W = u.reshape((chan_out, chan_in, filter_h, filter_w))
+        else:
+            W = v.reshape((chan_out, chan_in, filter_h, filter_w))
+        return W.astype(theano.config.floatX)
     def get_params(self):
         return self.w,self.b
 
@@ -38,27 +49,33 @@ class feedforward_layer(object):
     def __init__(self,input,features,nodes):
         self.input = input
         self.bound = np.sqrt(1.5/(features+nodes))
-        self.w = theano.shared(np.asarray(np.random.uniform(low=-self.bound,high=self.bound,size=(features,nodes)),dtype=theano.config.floatX))
-        self.b = theano.shared(np.asarray(np.random.uniform(low=-.5, high=.5, size=(nodes)),dtype=theano.config.floatX))
+        self.w = theano.shared(self.ortho_weights(features,nodes),borrow=True)
+        self.b = theano.shared(np.zeros((nodes,), dtype=theano.config.floatX),borrow=True)
         self.output = T.nnet.sigmoid(-T.dot(self.input,self.w)-self.b)
+    def ortho_weights(self,fan_in,fan_out):
+        bound = np.sqrt(2./(fan_in+fan_out))
+        W = np.random.randn(fan_in,fan_out)*bound
+        u, s, v = np.linalg.svd(W,full_matrices=False)
+        if u.shape[0] != u.shape[1]:
+            W = u
+        else:
+            W = v
+        return W.astype(theano.config.floatX)
     def get_params(self):
-        return self.w,self.b
+        return self.w,self.b        
 
 class neural_network(object):
     def __init__(self,convolutional_layers,feature_maps,filter_shapes,feedforward_layers,feedforward_nodes,classes):
-        self.input = T.tensor4()
-        self.residuals = []
+        self.input = T.tensor4()        
         self.convolutional_layers = []
-        self.convolutional_layers.append(convolutional_layer(self.input,feature_maps[1],feature_maps[0],filter_shapes[0][0],filter_shapes[0][1]))
-        self.residuals.append(self.convolutional_layers[0].output.flatten(2))
+        self.convolutional_layers.append(convolutional_layer(self.input,feature_maps[1],feature_maps[0],filter_shapes[0][0],filter_shapes[0][1],image_shapes[0]))
         for i in range(1,convolutional_layers):
             if i==2 or i==4:
-                self.convolutional_layers.append(convolutional_layer(self.convolutional_layers[i-1].output,feature_maps[i+1],feature_maps[i],filter_shapes[i][0],filter_shapes[i][1],maxpool=(2,2)))
+                self.convolutional_layers.append(convolutional_layer(self.convolutional_layers[i-1].output,feature_maps[i+1],feature_maps[i],filter_shapes[i][0],filter_shapes[i][1],image_shapes[i],maxpool=(2,2)))
             else:
-                self.convolutional_layers.append(convolutional_layer(self.convolutional_layers[i-1].output,feature_maps[i+1],feature_maps[i],filter_shapes[i][0],filter_shapes[i][1]))
-            self.residuals.append(self.convolutional_layers[i].output.flatten(2))
+                self.convolutional_layers.append(convolutional_layer(self.convolutional_layers[i-1].output,feature_maps[i+1],feature_maps[i],filter_shapes[i][0],filter_shapes[i][1],image_shapes[i]))
         self.feedforward_layers = []
-        self.feedforward_layers.append(feedforward_layer(sum(self.residuals),np.prod(image_shape)*feature_maps[1],feedforward_nodes[0]))
+        self.feedforward_layers.append(feedforward_layer(self.convolutional_layers[-1].output.flatten(2),11520,feedforward_nodes[0]))
         for i in range(1,feedforward_layers):
             self.feedforward_layers.append(feedforward_layer(self.feedforward_layers[i-1].output,feedforward_nodes[i-1],feedforward_nodes[i]))
         self.output_layer = feedforward_layer(self.feedforward_layers[-1].output,feedforward_nodes[-1],classes)
@@ -98,32 +115,37 @@ class neural_network(object):
     def train(self,X,y,batch_size=None):
         if batch_size:
             indices = np.random.permutation(X.shape[0])[:batch_size]
-            X = X[indices,:,:,:]
+            crop1 = np.random.randint(0,8)
+            crop2 = np.random.randint(0,8)
+            X = X[indices,:,crop1:crop1+24,crop2:crop2+24]
             y = y[indices]
+        y = np.concatenate((y,np.arange(10))) #make sure y includes all possible labels
         target = np.zeros((y.shape[0],len(np.unique(y))))
         for i in range(len(np.unique(y))):
             target[y==i,i] = 1
+        target = target[:-10,:] #drop extra labels inserted at end
+        if random.random() < .5:
+            X = np.fliplr(X)
+            y = np.flipud(y)
         return self.propogate(X,target)
-    def predict(self,X):
     
-        prediction = self.classify(X)
+    def predict(self,X):
+        cropped = X[:,:,4:28,4:28]
+        prediction = self.classify(cropped)
         return np.argmax(prediction,axis=1)
 
 print "building neural network"
 nn = neural_network(convolutional_layers,feature_maps,filter_shapes,feedforward_layers,feedforward_nodes,classes)
 
-batch_size = 500
+batch_size = 100
 
-for i in range(10000):
+for i in range(80000):
     cost = nn.train(X_train,y_train,batch_size)
-    sys.stdout.write("step %i training error: %f \r" % (i+1, cost))
+    sys.stdout.write("step %i loss: %f \r" % (i+1, cost))
     sys.stdout.flush()
-    if (i+1)%100 == 0:
-        pred1 = nn.predict(X_test[:1000,:])
-        pred2 = nn.predict(X_test[1000:2000,:])
-        pred3 = nn.predict(X_test[2000:3000,:])
-        pred4 = nn.predict(X_test[3000:4000,:])
-        pred5 = nn.predict(X_test[4000:,:])
-        pred = np.concatenate((pred1,pred2,pred3,pred4,pred5))
-        error = 1-float(np.sum(pred==y_test))/len(pred)
-        print "error at iteration %i: %.4f" % (i+1,error) 
+    if (i+1)%5000 == 0:
+        preds = []
+        for j in range(0,X_test.shape[0],batch_size):
+             preds.append(nn.predict(X_test[j:j+batch_size,:]))
+        pred = np.concatenate(preds)
+        np.savetxt('prediction.txt',pred,fmt='%.0f')

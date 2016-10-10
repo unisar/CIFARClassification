@@ -1,3 +1,4 @@
+import org.apache.commons.math3.optim.nonlinear.vector.Weight;
 import org.datavec.api.records.reader.RecordReader;
 import org.datavec.api.records.reader.impl.ComposableRecordReader;
 import org.datavec.api.records.reader.impl.csv.CSVRecordReader;
@@ -8,9 +9,7 @@ import org.datavec.image.recordreader.ImageRecordReader;
 import org.deeplearning4j.datasets.datavec.RecordReaderDataSetIterator;
 import org.deeplearning4j.eval.Evaluation;
 import org.deeplearning4j.nn.api.OptimizationAlgorithm;
-import org.deeplearning4j.nn.conf.MultiLayerConfiguration;
-import org.deeplearning4j.nn.conf.NeuralNetConfiguration;
-import org.deeplearning4j.nn.conf.Updater;
+import org.deeplearning4j.nn.conf.*;
 import org.deeplearning4j.nn.conf.inputs.InputType;
 import org.deeplearning4j.nn.conf.layers.ConvolutionLayer;
 import org.deeplearning4j.nn.conf.layers.DenseLayer;
@@ -23,6 +22,7 @@ import org.deeplearning4j.optimize.listeners.ScoreIterationListener;
 import org.deeplearning4j.ui.weights.HistogramIterationListener;
 import org.deeplearning4j.util.ModelSerializer;
 import org.nd4j.linalg.api.ndarray.INDArray;
+import org.nd4j.linalg.convolution.Convolution;
 import org.nd4j.linalg.dataset.DataSet;
 import org.nd4j.linalg.dataset.SplitTestAndTrain;
 import org.nd4j.linalg.dataset.api.iterator.DataSetIterator;
@@ -30,24 +30,23 @@ import org.nd4j.linalg.factory.Nd4j;
 import org.nd4j.linalg.lossfunctions.LossFunctions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
 import java.io.File;
 import java.net.URI;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.util.*;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 
 import static java.lang.System.exit;
 
-
 /**
- * Created by unisar on 1/10/16.
+ * Created by unisar 
  */
-
-public class CifarClassification {
-    private static final Logger log = LoggerFactory.getLogger(CifarClassification.class);
-
+public class AllConvolutionDL4J {
+    private static final Logger log = LoggerFactory.getLogger(AllConvolutionDL4J.class);
     private static String X_Train;
     private static String Y_Train;
     private static String X_Test;
@@ -74,59 +73,77 @@ public class CifarClassification {
 
         Nd4j.ENFORCE_NUMERICAL_STABILITY = true;
 
-        DataSet cifarDataSet;
 
         RecordReader recordReader = loadTrainingData();
         log.info("Load data....");
 
         DataSetIterator dataSetIterator = new RecordReaderDataSetIterator(recordReader, batchSize, 1, 10);
-        DataSetIterator testSetIterator = new RecordReaderDataSetIterator(loadTestingData(), 1);
+//        DataSetIterator testSetIterator = new RecordReaderDataSetIterator(loadTestingData(), 1);
+
 
         log.info("Build model....");
         MultiLayerConfiguration.Builder builder = new NeuralNetConfiguration.Builder()
-                .seed(seed)
+                .seed(seed).miniBatch(true)
                 .iterations(iterations)
                 .regularization(true).l2(0.0005)
-                .learningRate(0.01)
-                .weightInit(WeightInit.RELU)
+                .learningRate(0.1) //.biasLearningRate(0.2)
+                .learningRateDecayPolicy(LearningRatePolicy.Step).lrPolicyDecayRate(0.1).lrPolicySteps(45000/batchSize * 50)
+                .weightInit(WeightInit.XAVIER)
                 .optimizationAlgo(OptimizationAlgorithm.STOCHASTIC_GRADIENT_DESCENT)
-                .updater(Updater.ADAM).momentum(0.9)
+                .updater(Updater.NESTEROVS).momentum(0.9)
                 .list()
-                .layer(0, new ConvolutionLayer.Builder(5, 5)
-                        .nIn(nChannels)
-                        .stride(1, 1)
-                        .nOut(25)
-                        .activation("relu")
-                        .build())
-                .layer(1, new SubsamplingLayer.Builder(SubsamplingLayer.PoolingType.MAX)
-                        .kernelSize(2,2)
-                        .stride(2,2)
-                        .build())
-                .layer(2, new ConvolutionLayer.Builder(5, 5)
-                        .stride(1, 1)
-                        .nOut(50)
-                        .activation("relu")
-                        .build())
-                .layer(3, new SubsamplingLayer.Builder(SubsamplingLayer.PoolingType.MAX)
-                        .kernelSize(2,2)
-                        .stride(2,2)
-                        .build())
-                .layer(4, new DenseLayer.Builder().activation("relu")
-                        .nOut(500).build())
-                .layer(5, new OutputLayer.Builder(LossFunctions.LossFunction.NEGATIVELOGLIKELIHOOD)
-                        .nOut(outputNum)
-                        .activation("softmax")
-                        .build())
-                .setInputType(InputType.convolutionalFlat(32,32,3)) //See note below
-                .backprop(true).pretrain(false);
+                .layer(0, new ConvolutionLayer.Builder().kernelSize(new int[] { 3, 3 }).stride(new int[] { 1, 1 }).padding(new int[] { 1, 1 })
+                    .nOut(96)
+                    .activation("relu")
+                    .build())
+                .layer(1, new ConvolutionLayer.Builder().kernelSize(new int[] { 3, 3 }).stride(new int[] { 1, 1 }).padding(new int[] { 1, 1 })
+                    .nOut(96)
+                    .activation("relu")
+                    .build())
+                .layer(2, new ConvolutionLayer.Builder().kernelSize(new int[] {2, 2}).stride(new int[] {2, 2})
+                    .nOut(96).activation("relu")
+                    .dropOut(0.5)
+                    .build())
+                .layer(3, new ConvolutionLayer.Builder().kernelSize(new int[] { 3, 3 }).stride(new int[] { 1, 1 }).padding(new int[] { 1, 1 })
+                    .nOut(192)
+                    .activation("relu")
+                    .build())
+                .layer(4, new ConvolutionLayer.Builder().kernelSize(new int[] { 3, 3 }).stride(new int[] { 1, 1 }).padding(new int[] { 1, 1 })
+                    .nOut(192)
+                    .activation("relu")
+                    .build())
+                .layer(5, new ConvolutionLayer.Builder().kernelSize(new int[] {2, 2}).stride(new int[] {2, 2})
+                    .nOut(192).activation("relu")
+                    .dropOut(0.5)
+                    .build())
+                .layer(6, new ConvolutionLayer.Builder().kernelSize(new int[] { 3, 3 }).stride(new int[] { 1, 1 }).padding(new int[] { 1, 1 })
+                    .nOut(192)
+                    .activation("relu")
+                    .build())
+                .layer(7, new ConvolutionLayer.Builder().kernelSize(new int[] {1,1}).stride(new int[] { 1, 1 })
+                    .nOut(192)
+                    .activation("relu")
+                    .build())
+                .layer(8, new ConvolutionLayer.Builder().kernelSize(new int[] {1,1}).stride(new int[] { 1, 1 })
+                    .nOut(10)
+                    .activation("relu")
+                    .build())
+                .layer(9, new SubsamplingLayer.Builder().kernelSize(new int[] {8, 8}).stride(new int[] { 1, 1 }).build())
+                .layer(10, new OutputLayer.Builder(LossFunctions.LossFunction.NEGATIVELOGLIKELIHOOD)
+                    .nOut(outputNum)
+                    .activation("softmax")
+                    .build()).setInputType(InputType.convolutionalFlat(32, 32, 3))
+            .backprop(true)
+            .pretrain(false);
 
         MultiLayerConfiguration conf = builder.build();
         MultiLayerNetwork model = new MultiLayerNetwork(conf);
         model.init();
-        SplitTestAndTrain trainAndTest;
 
         log.info("Train model....");
-        model.setListeners(Arrays.asList(new IterationListener[] { new ScoreIterationListener(1), new HistogramIterationListener(1)})) ;
+        model.setListeners(new IterationListener[] {new ScoreIterationListener(1), new HistogramIterationListener(1)});
+        DataSet cifarDataSet;
+        SplitTestAndTrain trainAndTest;
 
         for( int i=0; i<nEpochs; i++ ) {
             dataSetIterator.reset();
@@ -136,7 +153,7 @@ public class CifarClassification {
             while (dataSetIterator.hasNext())
             {
                 cifarDataSet = dataSetIterator.next();
-                trainAndTest = cifarDataSet.splitTestAndTrain((int)(batchSize*0.9), new Random(seed));
+                trainAndTest = cifarDataSet.splitTestAndTrain((int)(batchSize*0.9));
                 DataSet trainInput = trainAndTest.getTrain();
                 testInput.add(trainAndTest.getTest().getFeatureMatrix());
                 testLabels.add(trainAndTest.getTest().getLabels());
@@ -156,11 +173,12 @@ public class CifarClassification {
             }
             log.info(eval.stats());
 
-            testSetIterator.reset();
+//            testSetIterator.reset();
             dataSetIterator.reset();
         }
-
+        log.info("****************Example finished********************");
     }
+
 
     public static RecordReader loadTestingData() throws Exception {
         RecordReader imageReader = new ImageRecordReader(32, 32, 3, 255);
