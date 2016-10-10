@@ -34,6 +34,8 @@ sess = tf.InteractiveSession()
 
 def weight_variable(shape):
     initial = tf.truncated_normal(shape, stddev=0.05)
+    weight_decay = tf.mul(tf.nn.l2_loss(initial), regularization, name='weight_loss')
+    tf.add_to_collection('losses', weight_decay)
     return initial
 
 def bias_variable(shape):
@@ -94,10 +96,8 @@ w10 = tf.Variable(weight_variable([10, num_labels]))
 b10 = tf.Variable(bias_variable([num_labels]))
 lastLayer = tf.matmul(reshape, w10) + b10
 
-loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(lastLayer,tfy) + 
-    regularization * (tf.nn.l2_loss(w1) + tf.nn.l2_loss(w2) + tf.nn.l2_loss(w3) +
-    tf.nn.l2_loss(w4) + tf.nn.l2_loss(w5) + tf.nn.l2_loss(w6) + tf.nn.l2_loss(w7) + 
-    tf.nn.l2_loss(w8) + tf.nn.l2_loss(w9) + tf.nn.l2_loss(w10)))
+loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(lastLayer,tfy)) + tf.add_n(tf.get_collection('losses'))
+
 lr = tf.placeholder(tf.float32)
 optimizer = tf.train.GradientDescentOptimizer(lr).minimize(loss)
 prediction = tf.nn.softmax(lastLayer)
