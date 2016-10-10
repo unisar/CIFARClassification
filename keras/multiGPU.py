@@ -1,53 +1,29 @@
-"""A binary to train CIFAR-10 using multiple GPU's with synchronous updates.
-Accuracy:
-cifar10_multi_gpu_train.py achieves ~86% accuracy after 100K steps (256
-epochs of data) as judged by cifar10_eval.py.
-Speed: With batch_size 128.
-System        | Step Time (sec/batch)  |     Accuracy
---------------------------------------------------------------------
-1 Tesla K20m  | 0.35-0.60              | ~86% at 60K steps  (5 hours)
-1 Tesla K40m  | 0.25-0.35              | ~86% at 100K steps (4 hours)
-2 Tesla K20m  | 0.13-0.20              | ~84% at 30K steps  (2.5 hours)
-3 Tesla K20m  | 0.13-0.18              | ~84% at 30K steps
-4 Tesla K20m  | ~0.10                  | ~84% at 30K steps
-Usage:
-Please see the tutorial and website for how to download the CIFAR-10
-data set, compile the program and train the model.
-http://tensorflow.org/tutorials/deep_cnn/
-"""
 from datetime import datetime
 import os.path
 import re
 import time
-
-# pylint: disable=unused-import,g-bad-import-order
 import tensorflow.python.platform
 from tensorflow.python.platform import gfile
 import numpy as np
 import tensorflow as tf
-#from tensorflow.models.image.cifar10 import cifar10
-# pylint: disable=unused-import,g-bad-import-order
 
 FLAGS = tf.app.flags.FLAGS
-
-tf.app.flags.DEFINE_string('train_dir', '/home/ubuntu/cifar10_train',
-                           """Directory where to write event logs """
-                           """and checkpoint.""")
-tf.app.flags.DEFINE_integer('max_steps', 1000,
-                            """Number of batches to run.""")
-tf.app.flags.DEFINE_integer('num_gpus', 4,
-                            """How many GPUs to use.""")
+tf.app.flags.DEFINE_string('train_dir', '/home/ubuntu/cifar10_train',"""Directory where to write event logs and checkpoint.""")
+tf.app.flags.DEFINE_integer('max_steps', 50000, """Number of batches to run.""")
+tf.app.flags.DEFINE_integer('num_gpus', 4, """How many GPUs to use.""")
 tf.app.flags.DEFINE_boolean('log_device_placement', True,"""Whether to log device placement.""")
-#tf.app.flags.DEFINE_boolean('batch_size', 100,"""Batch Size""")
 tf.app.flags.DEFINE_boolean('use_fp16', False,"""Train the model using fp16.""")
 
 # Constants describing the training process.
 TOWER_NAME = 'tower'
 MOVING_AVERAGE_DECAY = 0.9999     # The decay to use for the moving average.
-NUM_EPOCHS_PER_DECAY = 350.0      # Epochs after which learning rate decays.
+NUM_EPOCHS_PER_DECAY = 10000      # Epochs after which learning rate decays.
 LEARNING_RATE_DECAY_FACTOR = 0.1  # Learning rate decay factor.
 INITIAL_LEARNING_RATE = 0.1       # Initial learning rate.
 IMAGE_SIZE = 32
+NUM_EXAMPLES_PER_EPOCH_FOR_TRAIN = 15000
+#50000
+BATCH_SIZE = 100
 
 
 def one_hot(y):
@@ -105,15 +81,12 @@ def inference(images):
   # by replacing all instances of tf.get_variable() with tf.Variable().
   #
   # conv1
-  batch_size = 100
   with tf.variable_scope('conv1') as scope:
     kernel = _variable_with_weight_decay('weights',shape=[3, 3, 3, 64],stddev=5e-2,wd=0.0)
     conv = tf.nn.conv2d(images, kernel, [1, 1, 1, 1], padding='SAME')
     biases = _variable_on_cpu('biases', [64], tf.constant_initializer(0.0))
     bias = tf.nn.bias_add(conv, biases)
     conv1 = tf.nn.relu(bias, name=scope.name)
-    #_activation_summary(conv1)
-
     # pool1
     pool1 = tf.nn.max_pool(conv1, ksize=[1, 3, 3, 1], strides=[1, 2, 2, 1],padding='SAME', name='pool1')
     # norm1
@@ -126,44 +99,35 @@ def inference(images):
     biases = _variable_on_cpu('biases', [64], tf.constant_initializer(0.1))
     bias = tf.nn.bias_add(conv, biases)
     conv2 = tf.nn.relu(bias, name=scope.name)
-    #_activation_summary(conv2)
-
     # norm2
     norm2 = tf.nn.lrn(conv2, 4, bias=1.0, alpha=0.001 / 9.0, beta=0.75,name='norm2')
     # pool2
     pool2 = tf.nn.max_pool(norm2, ksize=[1, 3, 3, 1],strides=[1, 2, 2, 1], padding='VALID', name='pool2')
+    
     shape = pool2.get_shape().as_list()
-    pool2 = tf.reshape(pool2, [batch_size,shape[1]*shape[2]*shape[3]])
+    pool2 = tf.reshape(pool2, [BATCH_SIZE,shape[1]*shape[2]*shape[3]])
    
   # local3
   with tf.variable_scope('local3') as scope:
     # Move everything into depth so we can perform a single matrix multiply.
-    reshape = tf.reshape(pool2, [batch_size,-1])
+    reshape = tf.reshape(pool2, [BATCH_SIZE,-1])
     dim = reshape.get_shape()[1].value
-    #print("Dim!!")
-    #print dim
     weights = _variable_with_weight_decay('weights', shape=[dim, 384],stddev=0.04, wd=0.004)
     biases = _variable_on_cpu('biases', [384], tf.constant_initializer(0.1))
     local3 = tf.nn.relu(tf.matmul(reshape, weights) + biases, name=scope.name)
-    #_activation_summary(local3)
-
+  
   # local4
   with tf.variable_scope('local4') as scope:
-    weights = _variable_with_weight_decay('weights', shape=[384, 192],
-                                          stddev=0.04, wd=0.004)
+    weights = _variable_with_weight_decay('weights', shape=[384, 192],stddev=0.04, wd=0.004)
     biases = _variable_on_cpu('biases', [192], tf.constant_initializer(0.1))
     local4 = tf.nn.relu(tf.matmul(local3, weights) + biases, name=scope.name)
   
-    #_activation_summary(local4)
-
-
   # softmax, i.e. softmax(WX + b)
   with tf.variable_scope('softmax_linear') as scope:
     weights = _variable_with_weight_decay('weights', [192, 10],stddev=1/192.0, wd=0.0)
     biases = _variable_on_cpu('biases', [10],tf.constant_initializer(0.0))
     softmax_linear = tf.add(tf.matmul(local4, weights), biases, name=scope.name)
-    #_activation_summary(softmax_linear)
-
+  
   return softmax_linear
 
 def loss(logits, labels):
@@ -270,7 +234,6 @@ def train():
     X_train = np.load('X_train_large_subset_1_15000.npy')
     X_train = X_train.astype(np.float32)
 
-    #labels = np.genfromtxt('y_train.txt')
     y_train = np.genfromtxt('y_train_large_subset_1_15000.txt')
     y_train = one_hot(y_train)
     
@@ -280,18 +243,36 @@ def train():
       global_step = tf.get_variable('global_step', [],initializer=tf.constant_initializer(0), trainable=False)
 
       # Calculate the learning rate schedule.
-      num_batches_per_epoch = (50000 / 100)
+      num_batches_per_epoch = (NUM_EXAMPLES_PER_EPOCH_FOR_TRAIN / BATCH_SIZE)
       decay_steps = int(num_batches_per_epoch * NUM_EPOCHS_PER_DECAY)
 
       # Decay the learning rate exponentially based on the number of steps.
-      lr = tf.train.exponential_decay(INITIAL_LEARNING_RATE,global_step,decay_steps,LEARNING_RATE_DECAY_FACTOR,staircase=True)
+      lr = tf.train.exponential_decay(INITIAL_LEARNING_RATE,global_step, decay_steps, LEARNING_RATE_DECAY_FACTOR, staircase=True)
 
       # Create an optimizer that performs gradient descent.
       opt = tf.train.GradientDescentOptimizer(lr)
      
       #READ our IMAGES!!!
-      images = tf.placeholder(tf.float32, shape=[100,IMAGE_SIZE,IMAGE_SIZE,3])
-      labels = tf.placeholder(tf.float32, shape=[100,10])
+      images = tf.placeholder(tf.float32, shape=[BATCH_SIZE,IMAGE_SIZE,IMAGE_SIZE,3])
+
+      # Randomly crop a [height, width] section of the image.
+      #distorted_images =  tf.map_fn(lambda img: tf.random_crop(img, [height, width, 3]), images)
+      #tf.random_crop(reshaped_image, [height, width, 3])
+
+      # Randomly flip the image horizontally.
+      distorted_images = tf.map_fn(lambda img: tf.image.random_flip_left_right(img), images)
+      
+      # Because these operations are not commutative, consider randomizing
+      # the order their operation.
+      distorted_images = tf.map_fn(lambda img: tf.image.random_brightness(img,max_delta=63), distorted_images)
+
+      distorted_images = tf.map_fn(lambda img: tf.image.random_contrast(img,lower=0.2, upper=1.8), distorted_images)
+
+      # Subtract off the mean and divide by the variance of the pixels.
+      float_images = tf.map_fn(lambda img: tf.image.per_image_whitening(img), distorted_images)
+      
+
+      labels = tf.placeholder(tf.float32, shape=[BATCH_SIZE,10])
   
 
       #Calculate the gradients for each model tower.
@@ -303,7 +284,7 @@ def train():
             # Calculate the loss for one tower of the CIFAR model. This function
             # constructs the entire CIFAR model but shares the variables across
             # all towers.
-            loss = tower_loss(scope,images,labels)
+            loss = tower_loss(scope,float_images,labels)
 
             # Reuse variables for the next tower.
             tf.get_variable_scope().reuse_variables()
@@ -334,6 +315,11 @@ def train():
       # Build an initialization operation to run below.
       init = tf.initialize_all_variables()
 
+
+      # Calculate predictions.
+      #prediction=tf.nn.softmax(logits)
+
+
       # Start running operations on the Graph. allow_soft_placement must be set to
       # True to build towers on GPU, as some of the ops do not have GPU
       # implementations.
@@ -341,8 +327,6 @@ def train():
       sess.run(init)
 
       
-      #summary_writer = tf.train.SummaryWriter(FLAGS.train_dir,graph_def=sess.graph_def)
-
       for step in xrange(FLAGS.max_steps):
         start_time = time.time()
         indices = np.random.permutation(X_train.shape[0])[:100]
@@ -351,35 +335,24 @@ def train():
         feed_dict = {images : X_batch, labels : y_batch} 
         _, loss_value = sess.run([train_op, loss], feed_dict=feed_dict)
         duration = time.time() - start_time
-
         assert not np.isnan(loss_value), 'Model diverged with loss = NaN'
 
         if step % 10 == 0:
-          num_examples_per_step = 100 * FLAGS.num_gpus
+          num_examples_per_step = BATCH_SIZE * FLAGS.num_gpus
           examples_per_sec = num_examples_per_step / float(duration)
           sec_per_batch = float(duration) / FLAGS.num_gpus
 
-          format_str = ('%s: step %d, loss = %.2f (%.1f examples/sec; %.3f '
-                        'sec/batch)')
-          print (format_str % (datetime.now(), step, loss_value,
-                             examples_per_sec, sec_per_batch))
+          format_str = ('%s: step %d, loss = %.2f (%.1f examples/sec; %.3f ''sec/batch)')
+          print (format_str % (datetime.now(), step, loss_value,examples_per_sec, sec_per_batch))
 
-        #if step % 100 == 0:
-        #  summary_str = sess.run(summary_op)
-        #  summary_writer.add_summary(summary_str, step)
-
+        
         # Save the model checkpoint periodically.
         if step % 1000 == 0 or (step + 1) == FLAGS.max_steps:
           checkpoint_path = os.path.join(FLAGS.train_dir, 'model.ckpt')
           saver.save(sess, checkpoint_path, global_step=step)
 
 
-def main(argv=None):  # pylint: disable=unused-argument
-  
-  #cifar10.maybe_download_and_extract()
-  #if gfile.Exists(FLAGS.train_dir):
-  #  gfile.DeleteRecursively(FLAGS.train_dir)
-  #gfile.MakeDirs(FLAGS.train_dir)
+def main(argv=None):
   train()
 
 

@@ -31,7 +31,6 @@ LEARNING_RATE_DECAY_FACTOR = 0.1  # Learning rate decay factor.
 INITIAL_LEARNING_RATE = 0.1       # Initial learning rate.
 IMAGE_SIZE = 32
 RUN_ONCE = True
-final_predictions = []
 
 def one_hot(y):
     retVal = np.zeros((len(y), 10))
@@ -42,7 +41,7 @@ def accuracy(predictions, labels):
     return (100.0 * np.sum(np.argmax(predictions, 1) == np.argmax(labels, 1))/ predictions.shape[0])
 
 
-def eval_once(saver, top_k_op, logits):
+def eval_once(saver, top_k_op, labels, final_predictions, final_labels):
   print("in eval_once!!")
 
   """Run Eval once.
@@ -54,7 +53,7 @@ def eval_once(saver, top_k_op, logits):
     summary_op: Summary op.
   """
   with tf.Session() as sess:
-    global final_predictions 
+    #global final_predictions 
     ckpt = tf.train.get_checkpoint_state(FLAGS.checkpoint_dir)
     print("ckpt Directory found!!")
     if ckpt and ckpt.model_checkpoint_path:
@@ -69,36 +68,46 @@ def eval_once(saver, top_k_op, logits):
       return
 
     # Start the queue runners.
-    coord = tf.train.Coordinator()
+    #coord = tf.train.Coordinator()
     try:
-      x = sess.run([logits])
-      print (x.eval())
+     # x = sess.run([logits])
+      #print (x.eval())
     
       print("in try block")
-      threads = []
-      for qr in tf.get_collection(tf.GraphKeys.QUEUE_RUNNERS):
-        threads.extend(qr.create_threads(sess, coord=coord, daemon=True,start=True))
+      #threads = []
+      #for qr in tf.get_collection(tf.GraphKeys.QUEUE_RUNNERS):
+      #  threads.extend(qr.create_threads(sess, coord=coord, daemon=True,start=True))
 
       num_iter = int(math.ceil(FLAGS.num_examples / 100))
       true_count = 0  # Counts the number of correct predictions.
       total_sample_count = num_iter * 100
       step = 0
       print("step < num_iter")
-      while step < num_iter and not coord.should_stop():
+      while step < num_iter:
+        print ("in whilEE!!")
         predictions = sess.run([top_k_op])
-        true_count += np.sum(predictions)
+        print (predictions)
+        final_predictions.append(predictions)
+        final_labels.append(labels)
+        print ("after append predictions:")
+        print (final_predictions)
+        print ("after append label:")
+        print (final_labels)
+        #true_count += np.sum(predictions)
         step += 1
         
         
       # Compute precision @ 1.
-      precision = true_count / total_sample_count
-      print('%s: precision @ 1 = %.3f' % (datetime.now(), precision))
+      #precision = true_count / total_sample_count
+      #print('%s: precision @ 1 = %.3f' % (datetime.now(), precision))
 
     except Exception as e:  # pylint: disable=broad-except
-      coord.request_stop(e)
+      print(e)
 
-    coord.request_stop()
-    coord.join(threads)
+    #coord.request_stop()
+    #coord.join(threads)
+    print("before return from eval_once")
+    return final_predictions, final_labels
     
 
 def evaluate():
@@ -130,10 +139,8 @@ def evaluate():
     
     # Calculate predictions.
     #labels = tf.argmax(labels, 1)
-    #prediction=tf.nn.softmax(logits)
-    top_k_op = tf.nn.in_top_k(logits, labels, 1)
-
-    
+    top_k_op=tf.nn.softmax(logits)
+    #top_k_op = tf.nn.in_top_k(logits, labels, 1)
     print("top_k_op done!!")
 
     # Restore the moving average version of the learned variables for eval.
@@ -146,12 +153,15 @@ def evaluate():
     # summary_op = tf.merge_all_summaries()
 
     # summary_writer = tf.train.SummaryWriter(FLAGS.eval_dir, g)
-
+    final_predictions = []
+    final_labels = []
     while True:
-      eval_once(saver, top_k_op, logits)
+      final_predictions, final_labels = eval_once(saver, top_k_op, labels,final_predictions,final_labels)
       if RUN_ONCE:
         break
       time.sleep(FLAGS.eval_interval_secs)
+      print (final_predictions)
+      print (final_labels)
 
 def main(argv=None):
     print("in main!!!")
