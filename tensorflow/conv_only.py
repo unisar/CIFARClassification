@@ -2,6 +2,7 @@ import tensorflow as tf
 import numpy as np
 from sklearn.cross_validation import train_test_split
 import random
+import os.path
 
 def one_hot(y):
     retVal = np.zeros((len(y), 10))
@@ -21,6 +22,7 @@ y_test = one_hot(y_test)
 X_full = np.load('X_test_zca.npy')
 X_full = X_full.transpose(0,2,3,1)
 
+checkpointpath = '/tmp/allconv'
 noOfIterations = 180000
 image_size = 32
 num_channels = 3
@@ -28,6 +30,11 @@ num_labels=10
 batch_size = 100
 patch_size = 3
 regularization = 0.001
+
+# make sure the directory exists for checkpointing
+if not os.path.exists(checkpointpath):
+    os.makedirs(checkpointpath)
+    
 open('accuracy.txt', 'w').close()
 
 sess = tf.InteractiveSession()
@@ -104,10 +111,19 @@ prediction = tf.nn.softmax(lastLayer)
 correct_prediction = tf.equal(tf.argmax(prediction,1), tf.argmax(tfy,1))
 accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
 
-# Add an op to initialize the variables.
-init_op = tf.initialize_all_variables()
+# Initialize the model saver and load the model is a checkpoint found
+saver = tf.train.Saver()
 
-sess.run(init_op)
+ckpt = tf.train.get_checkpoint_state(checkpointpath)
+if ckpt and ckpt.model_checkpoint_path:
+  print ('Checkpoint file found. Restoring ... If not desired, please remove %s' % checkpointpath)
+  saver.restore(sess, ckpt.model_checkpoint_path)
+  global_step = ckpt.model_checkpoint_path.split('/')[-1].split('-')[-1]
+else:
+  print ('No checkpoint file found')
+  init_op = tf.initialize_all_variables()
+  sess.run(init_op)
+
 learning_rate = 0.1
 for i in range(noOfIterations):
     if i==100000:
@@ -143,7 +159,11 @@ for i in range(noOfIterations):
         print 'iteration %i test accuracy: %.4f%%' % (i, np.mean(test_accuracies))
         with open("accuracy.txt", "a") as f:
             f.write('iteration %i test accuracy: %.4f%%\n' % (i, np.mean(test_accuracies)))
-        
+
+    if (i % 1000 == 0):
+        checkpoint_path = os.path.join(checkpointpath, 'model.ckpt')
+        saver.save(sess, checkpoint_path, global_step=i)
+            
     if (i % 10000 == 0):
         preds = []
         for j in range(0,X_full.shape[0],batch_size):
