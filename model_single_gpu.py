@@ -145,7 +145,7 @@ for i in range(noOfIterations):
         X_batch = X_batch[:,:,::-1,:]
     
     #train
-    feed_dict = {tfx:X_batch,tfy:y_batch}
+    feed_dict = {tfx:X_batch,tfy:y_batch,kp1:0.8,kp2:0.5}
     l,_ = sess.run([loss,optimizer], feed_dict=feed_dict)
     print 'iteration %i loss: %.4f' % (i, l)
     
@@ -153,7 +153,7 @@ for i in range(noOfIterations):
     if (i % 100 == 0):
         test_accuracies = []
         for j in range(0,X_test.shape[0],batch_size):
-            feed_dict={tfx:X_test[j:j+batch_size,:,:,:],tfy:y_test[j:j+batch_size,:]}
+            feed_dict={tfx:X_test[j:j+batch_size,:,:,:],tfy:y_test[j:j+batch_size,:],kp1:1.,kp2:1.}
             test_accuracies.append(sess.run(accuracy, feed_dict=feed_dict)*100)
         print 'iteration %i test accuracy: %.4f%%' % (i, np.mean(test_accuracies))
         with open("accuracy.txt", "a") as f:
@@ -164,7 +164,7 @@ for i in range(noOfIterations):
     if (i % 5000 == 0):
         preds = []
         for j in range(0,X_full.shape[0],batch_size):
-            feed_dict={tfx:X_full[j:j+batch_size,:,:,:]}
+            feed_dict={tfx:X_full[j:j+batch_size,:,:,:],kp1:1.,kp2:1.}
             p = sess.run(prediction, feed_dict=feed_dict)
             preds.append(np.argmax(p, 1))
         pred = np.concatenate(preds)
