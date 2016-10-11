@@ -16,11 +16,20 @@ The following preprocessing was applied to each image before sending to our clas
 ## Model Description
 We used a convolutional neural network as our image classifier due to the proven effectiveness of these models
 for image recognition tasks. We used the following architecture/features for our network: 
+- 2 convolutional layers using 3x3 filter shape, 80 feature maps each, ELU activation
+- maxpool with 2x2 window
+- 2 convolutional layers using 3x3 filter shape, 160 feature maps each, ELU activation
+- maxpool with 2x2 window
+- 2 convolutional layers using 3x3 filter shape, 320 feature maps each, ELU activation
+- feedforward layer of 2000 nodes, sigmoid activation
+- softmax layer
+- adam gradient descent
+- orthogonal weight initialization
 
 ## Runtime Environment
+We tested our model in multiple environments including Theano, Tensorflow, and DeepLearning4j.
 We built our final model in TensorFlow because it provided the most functionality in terms of out-of-the-box
-neural network libraries. We ran our model on a single AWS G2.2xlarge instance. GPU training greatly sped up the 
-time required to train our neural network. 
+neural network libraries and provided the easiest implementation of multi-GPU deployment.
 
 ## Instructions for Running Model
 We recommend running the following scripts on an AWS G2 instance. Be sure to allocate disk space to the instance
@@ -34,3 +43,6 @@ We recommend running the following scripts on an AWS G2 instance. Be sure to all
 
 Once your environment has been setup, download the project files and run the following:
 - python preprocessing.py \<path to X_train.txt\> \<path to X_test.txt\> \<optional: 1 to enable ZCA whitening (requires theano and scipy)\>
+- python model_single_gpu.py
+
+Cross validation accuracy is recorded every 100 iterations to accuracy.txt. Predictions are saved every 5000 iterations to prediction.txt.

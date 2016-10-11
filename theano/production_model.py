@@ -19,13 +19,12 @@ X_test = np.load('X_test_zca.npy')
 convolutional_layers = 6
 feature_maps = [3,80,80,160,160,320,320]
 filter_shapes = [(3,3),(3,3),(3,3),(3,3),(3,3),(3,3)]
-image_shapes = [(32,32),(32,32),(16,16),(16,16),(8,8),(8,8)]
 feedforward_layers = 1
 feedforward_nodes = [2000]
 classes = 10
 
 class convolutional_layer(object):
-    def __init__(self, input, output_maps, input_maps, filter_height, filter_width, image_shape, maxpool=None):
+    def __init__(self, input, output_maps, input_maps, filter_height, filter_width, maxpool=None):
         self.input = input
         self.w = theano.shared(self.ortho_weights(output_maps,input_maps,filter_height,filter_width),borrow=True)
         self.b = theano.shared(np.zeros((output_maps,), dtype=theano.config.floatX),borrow=True)
@@ -68,12 +67,12 @@ class neural_network(object):
     def __init__(self,convolutional_layers,feature_maps,filter_shapes,feedforward_layers,feedforward_nodes,classes):
         self.input = T.tensor4()        
         self.convolutional_layers = []
-        self.convolutional_layers.append(convolutional_layer(self.input,feature_maps[1],feature_maps[0],filter_shapes[0][0],filter_shapes[0][1],image_shapes[0]))
+        self.convolutional_layers.append(convolutional_layer(self.input,feature_maps[1],feature_maps[0],filter_shapes[0][0],filter_shapes[0][1]))
         for i in range(1,convolutional_layers):
             if i==2 or i==4:
-                self.convolutional_layers.append(convolutional_layer(self.convolutional_layers[i-1].output,feature_maps[i+1],feature_maps[i],filter_shapes[i][0],filter_shapes[i][1],image_shapes[i],maxpool=(2,2)))
+                self.convolutional_layers.append(convolutional_layer(self.convolutional_layers[i-1].output,feature_maps[i+1],feature_maps[i],filter_shapes[i][0],filter_shapes[i][1],maxpool=(2,2)))
             else:
-                self.convolutional_layers.append(convolutional_layer(self.convolutional_layers[i-1].output,feature_maps[i+1],feature_maps[i],filter_shapes[i][0],filter_shapes[i][1],image_shapes[i]))
+                self.convolutional_layers.append(convolutional_layer(self.convolutional_layers[i-1].output,feature_maps[i+1],feature_maps[i],filter_shapes[i][0],filter_shapes[i][1]))
         self.feedforward_layers = []
         self.feedforward_layers.append(feedforward_layer(self.convolutional_layers[-1].output.flatten(2),20480,feedforward_nodes[0]))
         for i in range(1,feedforward_layers):
