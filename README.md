@@ -47,6 +47,7 @@ We recommend running the following scripts on an AWS G2 instance. Be sure to all
 
 Once your environment has been setup, download the project files and run the following:
 - python preprocessing.py \<path to X_train.txt\> \<path to X_test.txt\> \<optional: 1 to enable ZCA whitening (requires theano and scipy)\>
-- **for single GPU:** python model_single_gpu.py
+- **for single GPU/CPU:** python model_single_gpu.py
 
-Cross validation accuracy is recorded every 100 iterations to accuracy.txt. Predictions are saved every 5000 iterations to prediction.txt.
+Cross validation accuracy is recorded every 100 iterations to *accuracy.txt*. 
+Predictions are saved every 5000 iterations to *prediction.txt*.
