@@ -32,7 +32,7 @@ class convolutional_layer(object):
         self.conv_out = conv2d(input=self.input, filters=self.w, border_mode='half')
         if maxpool:
             self.conv_out = downsample.max_pool_2d(self.conv_out, ds=maxpool, ignore_border=True)
-        self.output = T.tanh(self.conv_out + self.b.dimshuffle('x', 0, 'x', 'x'))
+        self.output = T.nnet.elu(self.conv_out + self.b.dimshuffle('x', 0, 'x', 'x'))
     def ortho_weights(self,chan_out,chan_in,filter_h,filter_w):
         bound = np.sqrt(6./(chan_in*filter_h*filter_w + chan_out*filter_h*filter_w))
         W = np.random.random((chan_out, chan_in * filter_h * filter_w))
