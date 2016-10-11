@@ -28,7 +28,7 @@ except:
 X_full = X_full.transpose(0,2,3,1)
 
 #model parameters
-noOfIterations = 100000
+noOfIterations = 80000
 image_size = 32
 num_channels = 3
 num_labels = 10
@@ -115,7 +115,7 @@ prediction=tf.nn.softmax(lastLayer)
 correct_prediction = tf.equal(tf.argmax(prediction,1), tf.argmax(tfy,1))
 accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
 
-# Run model
+#run model
 init_op = tf.initialize_all_variables()
 sess = tf.InteractiveSession()
 sess.run(init_op)
@@ -123,7 +123,11 @@ open('accuracy.txt', 'w').close()
 
 for i in range(noOfIterations):
     indices = np.random.permutation(X_train.shape[0])[:batch_size]
+    
+    #generate random minibatch
     X_batch = X_train[indices,:,:,:]
+    
+    #random translation of image by 5 image
     crop1 = np.random.randint(-5,6)
     crop2 = np.random.randint(-5,6)
     if crop1 > 0:
@@ -135,26 +139,32 @@ for i in range(noOfIterations):
     elif crop2 < 0:
         X_batch = np.concatenate((np.zeros((batch_size,image_size,-crop2,num_channels)),X_batch[:,:,:crop2,:]),axis=2)   
     y_batch = y_train[indices,:]
+    
+    #randomly flip image
     if random.random() < .5:
         X_batch = X_batch[:,:,::-1,:]
-    feed_dict = {tfx:X_batch,tfy:y_batch,kp1:0.8,kp2:0.5}
+    
+    #train
+    feed_dict = {tfx:X_batch,tfy:y_batch}
     l,_ = sess.run([loss,optimizer], feed_dict=feed_dict)
     print 'iteration %i loss: %.4f' % (i, l)
-
+    
+    #cross validation accuracy
     if (i % 100 == 0):
         test_accuracies = []
         for j in range(0,X_test.shape[0],batch_size):
-            feed_dict={tfx:X_test[j:j+batch_size,:,:,:],tfy:y_test[j:j+batch_size,:],kp1:1.,kp2:1.}
+            feed_dict={tfx:X_test[j:j+batch_size,:,:,:],tfy:y_test[j:j+batch_size,:]}
             test_accuracies.append(sess.run(accuracy, feed_dict=feed_dict)*100)
         print 'iteration %i test accuracy: %.4f%%' % (i, np.mean(test_accuracies))
         with open("accuracy.txt", "a") as f:
             f.write('iteration %i test accuracy: %.4f%%\n' % (i, np.mean(test_accuracies)))
             f.write('iteration %i training loss: %.4f\n' % (i, l))
- 
+    
+    #run model on test
     if (i % 5000 == 0):
         preds = []
         for j in range(0,X_full.shape[0],batch_size):
-            feed_dict={tfx:X_full[j:j+batch_size,:,:,:],kp1:1.,kp2:1.}
+            feed_dict={tfx:X_full[j:j+batch_size,:,:,:]}
             p = sess.run(prediction, feed_dict=feed_dict)
             preds.append(np.argmax(p, 1))
         pred = np.concatenate(preds)
