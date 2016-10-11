@@ -20,7 +20,7 @@ X_train, X_test, y_train, y_test = train_test_split(input, labels, test_size=0.1
 convolutional_layers = 6
 feature_maps = [3,80,80,160,160,320,320]
 filter_shapes = [(3,3),(3,3),(3,3),(3,3),(3,3),(3,3)]
-image_shapes = [(24,24),(24,24),(12,12),(12,12),(6,6),(6,6)]
+image_shapes = [(32,32),(32,32),(16,16),(16,16),(8,8),(8,8)]
 feedforward_layers = 1
 feedforward_nodes = [2000]
 classes = 10
@@ -76,7 +76,7 @@ class neural_network(object):
             else:
                 self.convolutional_layers.append(convolutional_layer(self.convolutional_layers[i-1].output,feature_maps[i+1],feature_maps[i],filter_shapes[i][0],filter_shapes[i][1],image_shapes[i]))
         self.feedforward_layers = []
-        self.feedforward_layers.append(feedforward_layer(self.convolutional_layers[-1].output.flatten(2),11520,feedforward_nodes[0]))
+        self.feedforward_layers.append(feedforward_layer(self.convolutional_layers[-1].output.flatten(2),20480,feedforward_nodes[0]))
         for i in range(1,feedforward_layers):
             self.feedforward_layers.append(feedforward_layer(self.feedforward_layers[i-1].output,feedforward_nodes[i-1],feedforward_nodes[i]))
         self.output_layer = feedforward_layer(self.feedforward_layers[-1].output,feedforward_nodes[-1],classes)
@@ -116,9 +116,17 @@ class neural_network(object):
     def train(self,X,y,batch_size=None):
         if batch_size:
             indices = np.random.permutation(X.shape[0])[:batch_size]
-            crop1 = np.random.randint(0,8)
-            crop2 = np.random.randint(0,8)
-            X = X[indices,:,crop1:crop1+24,crop2:crop2+24]
+            crop1 = np.random.randint(-5,6)
+            crop2 = np.random.randint(-5,6)
+            X = X[indices,:,:,:]
+            if crop1 > 0:
+                X = np.concatenate((X[:,:,crop1:,:],np.zeros((batch_size,3,crop1,32))),axis=2)
+            elif crop1 < 0:
+                X = np.concatenate((np.zeros((batch_size,3,-crop1,32)),X[:,:,:crop1,:]),axis=2)
+            if crop2 > 0:
+                X = np.concatenate((X[:,:,:,crop2:],np.zeros((batch_size,3,32,crop2))),axis=3)
+            elif crop2 < 0:
+                X = np.concatenate((np.zeros((batch_size,3,32,-crop2)),X[:,:,:,:crop2]),axis=3)
             y = y[indices]
         y = np.concatenate((y,np.arange(10))) #make sure y includes all possible labels
         target = np.zeros((y.shape[0],len(np.unique(y))))
@@ -126,13 +134,11 @@ class neural_network(object):
             target[y==i,i] = 1
         target = target[:-10,:] #drop extra labels inserted at end
         if random.random() < .5:
-            X = np.fliplr(X)
-            y = np.flipud(y)
+            X = X[:,:,:,::-1]
         return self.propogate(X,target)
     
     def predict(self,X):
-        cropped = X[:,:,4:28,4:28]
-        prediction = self.classify(cropped)
+        prediction = self.classify(X)
         return np.argmax(prediction,axis=1)
 
 print "building neural network"
