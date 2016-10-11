@@ -128,8 +128,9 @@ for i in range(noOfIterations):
     feed_dict = {tfx:X_batch,tfy:y_batch}
     l,_ = sess.run([loss,optimizer], feed_dict=feed_dict)
     print 'iteration %i loss: %.4f' % (i, l)
-    with open("accuracy.txt", "a") as f:
-        f.write('iteration %i loss: %.4f\n' % (i, l))
+    if ((i+1) % 100 == 0):
+        with open("accuracy.txt", "a") as f:
+            f.write('iteration %i loss: %.4f\n' % (i, l))
 
     if ((i+1) % 10000 == 0):
         test_accuracies = []

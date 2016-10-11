@@ -135,8 +135,7 @@ for i in range(noOfIterations):
     X_batch = X_train[indices,crop1:crop1+24,crop2:crop2+24,:]
     y_batch = y_train[indices,:]
     if random.random() < .5:
-        X_batch = np.fliplr(X_batch)
-        y_batch = np.flipud(y_batch)
+        X_batch = X_batch[:,:,::-1,:]
     feed_dict = {tfx : X_batch, tfy : y_batch, keep_prob: 0.5}
     _, l, predictions = sess.run([optimizer, loss, prediction], feed_dict=feed_dict)
 
