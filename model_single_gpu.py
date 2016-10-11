@@ -119,6 +119,7 @@ accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
 init_op = tf.initialize_all_variables()
 sess = tf.InteractiveSession()
 sess.run(init_op)
+open('accuracy.txt', 'w').close()
 
 for i in range(noOfIterations):
     indices = np.random.permutation(X_train.shape[0])[:batch_size]
