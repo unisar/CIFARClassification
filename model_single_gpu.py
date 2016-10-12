@@ -3,7 +3,7 @@ import numpy as np
 from sklearn.cross_validation import train_test_split
 import random
 
-#load data
+#load training data
 try:
     input = np.load('X_train_zca.npy')
 except:
@@ -11,8 +11,10 @@ except:
 input = input.transpose(0,2,3,1)
 labels = np.genfromtxt('../data/y_train.txt')
 
+#cross validation splitting
 X_train, X_test, y_train, y_test = train_test_split(input, labels, test_size=0.1, random_state=42, stratify=labels)
 
+#one hot encoding for labels
 def one_hot(y):
     retVal = np.zeros((len(y), 10))
     retVal[np.arange(len(y)), y.astype(int)] = 1
@@ -21,6 +23,7 @@ def one_hot(y):
 y_train = one_hot(y_train)
 y_test = one_hot(y_test)
 
+#load test data
 try:
     X_full = np.load('X_test_zca.npy')
 except:
@@ -66,49 +69,66 @@ def max_pool_2x2(x):
     return tf.nn.max_pool(x, ksize=[1,2,2,1], strides=[1,2,2,1], padding='SAME')
 
 #neural net architecture
+#input layer - 20% dropout
 tfx = tf.placeholder(tf.float32, shape=[None,image_size,image_size,num_channels])
 tfy = tf.placeholder(tf.float32, shape=[None,num_labels])
 kp1 = tf.placeholder(tf.float32)
 d1 = tf.nn.dropout(tfx, kp1)
 
+#layer 1 - 3x3 convolution into 80 maps with ELU activation
+#input size - (batchsize,32,32,3)
 w1 = tf.Variable(conv_ortho_weights(3,3,3,80))
 b1 = tf.Variable(bias_variable([80]))
 l1 = tf.nn.elu(conv2d(d1,w1) + b1)
 
+#layer 2 - 3x3 convolution into 80 maps with ELU activation, then 2x2 maxpool
+#input size - (batchsize,32,32,80)
 w2 = tf.Variable(conv_ortho_weights(3,3,80,80))
 b2 = tf.Variable(bias_variable([80]))    
 l2 = tf.nn.elu(conv2d(l1, w2) + b2)
 maxpool1 = max_pool_2x2(l2)
 
+#layer 3 - 3x3 convolution into 160 maps with ELU activation
+#input size - (batchsize,16,16,80)
 w3 = tf.Variable(conv_ortho_weights(3,3,80,160))
 b3 = tf.Variable(bias_variable([160]))
 l3 = tf.nn.elu(conv2d(maxpool1, w3) + b3)
 
+#layer 4 - 3x3 convolution into 160 maps with ELU activation, then 2x2 maxpool
+#input size - (batchsize,16,16,160)
 w4 = tf.Variable(conv_ortho_weights(3,3,160,160))
 b4 =  tf.Variable(bias_variable([160]))
 l4 = tf.nn.elu(conv2d(l3, w4) + b4)
 maxpool2 = max_pool_2x2(l4)
 
+#layer 5 - 3x3 convolution into 320 maps with ELU activation
+#input size - (batchsize,8,8,160)
 w5 = tf.Variable(conv_ortho_weights(3,3,160,320))
 b5 =  tf.Variable(bias_variable([320]))
 l5 = tf.nn.elu(conv2d(maxpool2, w5) + b5)
 
+#layer 6 - 3x3 convolution into 320 maps with ELU activation
+#input size - (batchsize,8,8,320)
 w6 = tf.Variable(conv_ortho_weights(3,3,320,320))
 b6 =  tf.Variable(bias_variable([320]))
 l6 = tf.nn.elu(conv2d(l5, w6) + b6)
 
+#layer 7 - dense feedforward layer with 2000 ELU units, 50% dropout
+#input size - (batchsize,8,8,320)
 w7 = tf.Variable(dense_ortho_weights(8 * 8 * 320, 2000))
 b7 = tf.Variable(bias_variable([2000]))
 flattened = tf.reshape(l6, [-1, 8 * 8 * 320])
 l7 = tf.nn.elu(tf.matmul(flattened, w7) + b7)
-
 kp2 = tf.placeholder(tf.float32)
 drop = tf.nn.dropout(l7, kp2)
 
+#layer 8 - softmax layer into output labels
+#input size - (batchsize,2000)
 w8 = tf.Variable(dense_ortho_weights(2000, num_labels))
 b8 = tf.Variable(bias_variable([num_labels]))
 lastLayer = tf.matmul(drop, w8) + b8
 
+#loss, accuracy, and training functions
 loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(lastLayer,tfy))
 optimizer = tf.train.AdamOptimizer(0.0002,0.9,0.99).minimize(loss)
 prediction=tf.nn.softmax(lastLayer)
