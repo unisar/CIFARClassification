@@ -16,15 +16,14 @@ tf.app.flags.DEFINE_boolean('use_fp16', False,"""Train the model using fp16.""")
 
 # Constants describing the training process.
 TOWER_NAME = 'tower'
-MOVING_AVERAGE_DECAY = 0.9999     # The decay to use for the moving average.
-NUM_EPOCHS_PER_DECAY = 10000      # Epochs after which learning rate decays.
-LEARNING_RATE_DECAY_FACTOR = 0.1  # Learning rate decay factor.
+MOVING_AVERAGE_DECAY = 0.09     # The decay to use for the moving average.
+NUM_EPOCHS_PER_DECAY = 1000.0      # Epochs after which learning rate decays.
+LEARNING_RATE_DECAY_FACTOR = 0.0001  # Learning rate decay factor.
 INITIAL_LEARNING_RATE = 0.1       # Initial learning rate.
 IMAGE_SIZE = 32
-NUM_EXAMPLES_PER_EPOCH_FOR_TRAIN = 15000
-#50000
+NUM_EXAMPLES_PER_EPOCH_FOR_TRAIN = 50000
 BATCH_SIZE = 100
-
+NUM_CLASSES = 10
 
 def one_hot(y):
     retVal = np.zeros((len(y), 10))
@@ -75,60 +74,100 @@ def inference(images):
   Returns:
     Logits.
   """
-  # We instantiate all variables using tf.get_variable() instead of
-  # tf.Variable() in order to share variables across multiple GPU training runs.
-  # If we only ran this model on a single GPU, we could simplify this function
-  # by replacing all instances of tf.get_variable() with tf.Variable().
-  #
-  # conv1
+  # conv1  
   with tf.variable_scope('conv1') as scope:
-    kernel = _variable_with_weight_decay('weights',shape=[3, 3, 3, 64],stddev=5e-2,wd=0.0)
+    kernel = _variable_with_weight_decay('weights',shape=[3, 3, 3, 96],stddev=5e-2,wd=0.0)
     conv = tf.nn.conv2d(images, kernel, [1, 1, 1, 1], padding='SAME')
-    biases = _variable_on_cpu('biases', [64], tf.constant_initializer(0.0))
+    biases = _variable_on_cpu('biases', [96], tf.constant_initializer(0.0))
     bias = tf.nn.bias_add(conv, biases)
-    conv1 = tf.nn.relu(bias, name=scope.name)
-    # pool1
-    pool1 = tf.nn.max_pool(conv1, ksize=[1, 3, 3, 1], strides=[1, 2, 2, 1],padding='SAME', name='pool1')
-    # norm1
-    norm1 = tf.nn.lrn(pool1, 4, bias=1.0, alpha=0.001 / 9.0, beta=0.75,name='norm1')
+    conv1 = tf.nn.relu6(bias, name=scope.name)
+    drop1 = tf.nn.dropout(conv1,0.8)
     
   # conv2
   with tf.variable_scope('conv2') as scope:
-    kernel = _variable_with_weight_decay('weights',shape=[3, 3, 64, 64],stddev=5e-2,wd=0.0)
-    conv = tf.nn.conv2d(norm1, kernel, [1, 2, 2, 1], padding='VALID')
-    biases = _variable_on_cpu('biases', [64], tf.constant_initializer(0.1))
+    kernel = _variable_with_weight_decay('weights',shape=[3, 3, 96, 96],stddev=5e-2,wd=0.0)
+    conv = tf.nn.conv2d(drop1, kernel, [1, 1, 1, 1], padding='SAME')
+    biases = _variable_on_cpu('biases', [96], tf.constant_initializer(0.0))
     bias = tf.nn.bias_add(conv, biases)
-    conv2 = tf.nn.relu(bias, name=scope.name)
-    # norm2
-    norm2 = tf.nn.lrn(conv2, 4, bias=1.0, alpha=0.001 / 9.0, beta=0.75,name='norm2')
-    # pool2
-    pool2 = tf.nn.max_pool(norm2, ksize=[1, 3, 3, 1],strides=[1, 2, 2, 1], padding='VALID', name='pool2')
-    
-    shape = pool2.get_shape().as_list()
-    pool2 = tf.reshape(pool2, [BATCH_SIZE,shape[1]*shape[2]*shape[3]])
-   
-  # local3
-  with tf.variable_scope('local3') as scope:
-    # Move everything into depth so we can perform a single matrix multiply.
-    reshape = tf.reshape(pool2, [BATCH_SIZE,-1])
-    dim = reshape.get_shape()[1].value
-    weights = _variable_with_weight_decay('weights', shape=[dim, 384],stddev=0.04, wd=0.004)
-    biases = _variable_on_cpu('biases', [384], tf.constant_initializer(0.1))
-    local3 = tf.nn.relu(tf.matmul(reshape, weights) + biases, name=scope.name)
+    conv2 = tf.nn.relu6(bias, name=scope.name)
   
-  # local4
-  with tf.variable_scope('local4') as scope:
-    weights = _variable_with_weight_decay('weights', shape=[384, 192],stddev=0.04, wd=0.004)
+  # conv3
+  with tf.variable_scope('conv3') as scope:
+    kernel = _variable_with_weight_decay('weights',shape=[3, 3, 96, 96],stddev=5e-2,wd=0.0)
+    conv = tf.nn.conv2d(conv2, kernel, [1, 2, 2, 1], padding='SAME')
+    biases = _variable_on_cpu('biases', [96], tf.constant_initializer(0.0))
+    bias = tf.nn.bias_add(conv, biases)
+    conv3 = tf.nn.relu6(bias, name=scope.name)
+    drop3 = tf.nn.dropout(conv3,0.5)
+
+  # conv4
+  with tf.variable_scope('conv4') as scope:
+    kernel = _variable_with_weight_decay('weights',shape=[3, 3, 96, 192],stddev=5e-2,wd=0.0)
+    conv = tf.nn.conv2d(drop3, kernel, [1, 1, 1, 1], padding='SAME')
+    biases = _variable_on_cpu('biases', [192], tf.constant_initializer(0.0))
+    bias = tf.nn.bias_add(conv, biases)
+    conv4 = tf.nn.relu6(bias, name=scope.name)
+
+  
+  # conv5
+  with tf.variable_scope('conv5') as scope:
+    kernel = _variable_with_weight_decay('weights',shape=[3, 3, 192, 192],stddev=5e-2,wd=0.0)
+    conv = tf.nn.conv2d(conv4, kernel, [1, 1, 1, 1], padding='SAME')
+    biases = _variable_on_cpu('biases', [192], tf.constant_initializer(0.0))
+    bias = tf.nn.bias_add(conv, biases)
+    conv5 = tf.nn.relu6(bias, name=scope.name)
+  
+  # conv6
+  with tf.variable_scope('conv6') as scope:
+    kernel = _variable_with_weight_decay('weights',shape=[3, 3, 192, 192],stddev=5e-2,wd= 0.001)
+    conv = tf.nn.conv2d(conv5, kernel, [1, 2, 2, 1], padding='SAME')
     biases = _variable_on_cpu('biases', [192], tf.constant_initializer(0.1))
-    local4 = tf.nn.relu(tf.matmul(local3, weights) + biases, name=scope.name)
+    bias = tf.nn.bias_add(conv, biases)
+    conv6 = tf.nn.relu6(bias)
+    drop6 = tf.nn.dropout(conv6,0.5, name=scope.name)
+
+
+  # conv7
+  with tf.variable_scope('conv7') as scope:
+    kernel = _variable_with_weight_decay('weights',shape=[3, 3, 192, 192],stddev=5e-2,wd= 0.0)
+    conv = tf.nn.conv2d(drop6, kernel, [1, 1, 1, 1], padding='SAME')
+    biases = _variable_on_cpu('biases', [192], tf.constant_initializer(0.1))
+    bias = tf.nn.bias_add(conv, biases)
+    conv7 = tf.nn.relu6(bias, name=scope.name)
   
-  # softmax, i.e. softmax(WX + b)
+  # conv8
+  with tf.variable_scope('conv8') as scope:
+    kernel = _variable_with_weight_decay('weights',shape=[1, 1, 192, 192],stddev=5e-2,wd=0.0)
+    conv = tf.nn.conv2d(conv7, kernel, [1, 1, 1, 1], padding='SAME')
+    biases = _variable_on_cpu('biases', [192], tf.constant_initializer(0.0))
+    bias = tf.nn.bias_add(conv, biases)
+    conv8 = tf.nn.relu6(bias, name=scope.name)
+
+  # conv9
+  with tf.variable_scope('conv9') as scope:
+    kernel = _variable_with_weight_decay('weights',shape=[1, 1, 192, 10],stddev=0.04,wd=0.0)
+    conv = tf.nn.conv2d(conv8, kernel, [1, 1, 1, 1], padding='SAME')
+    biases = _variable_on_cpu('biases', [10], tf.constant_initializer(0.0))
+    bias = tf.nn.bias_add(conv, biases)
+    conv8 = tf.nn.relu6(bias, name=scope.name)
+    print ("bias")
+    print (bias.get_shape())
+
+    avg_pool7 = tf.nn.avg_pool(conv8,[1,8,8,1],[1,7,7,1],'VALID',name=scope.name)
+    print ("avg_pool7")
+    print (avg_pool7.get_shape())
+
+  
+  # conv10
   with tf.variable_scope('softmax_linear') as scope:
-    weights = _variable_with_weight_decay('weights', [192, 10],stddev=1/192.0, wd=0.0)
-    biases = _variable_on_cpu('biases', [10],tf.constant_initializer(0.0))
-    softmax_linear = tf.add(tf.matmul(local4, weights), biases, name=scope.name)
+    shape = avg_pool7.get_shape().as_list()
+    weights = _variable_with_weight_decay('weights',shape=[10,10],stddev=0.01,wd=0.0)
+    biases = _variable_on_cpu('biases', [10], tf.constant_initializer(0.0))
+    reshape = tf.reshape(avg_pool7, [-1, 10])
+    softmax_linear = tf.add(tf.matmul(reshape, weights),biases,name=scope.name)
   
-  return softmax_linear
+  return softmax_linear  
+  
 
 def loss(logits, labels):
   """Add L2Loss to all the trainable variables.
@@ -152,7 +191,7 @@ def loss(logits, labels):
   return tf.add_n(tf.get_collection('losses'), name='total_loss')
 
 
-def tower_loss(scope, images, labels):
+def tower_loss(scope):
   """Calculate the total loss on a single tower running the CIFAR model.
   Args:
     scope: unique prefix string identifying the CIFAR tower, e.g. 'tower_0'
@@ -160,7 +199,8 @@ def tower_loss(scope, images, labels):
      Tensor of shape [] containing the total loss for a batch of data
   """
   # Get images and labels for CIFAR-10.
-  
+  images, labels = read_and_preprocess_images()
+
   # Build inference Graph.
   logits = inference(images)
   
@@ -229,15 +269,85 @@ def average_gradients(tower_grads):
     average_grads.append(grad_and_var)
   return average_grads
 
+def read_images_from_disk(img_label_Q):
+      label = img_label_Q[1]
+      file_contents = tf.read_file(img_label_Q[0])
+      example = tf.image.decode_png(file_contents, channels=3,dtype=tf.uint8)
+      label = tf.one_hot(label, 10, dtype=tf.float32)
+      example.set_shape([32, 32, 3])
+      label.set_shape = ([10])
+      return example, label
+
+def read_and_preprocess_images():
+      data_dir="/home/ubuntu/mytf/data/X_train.txt"
+      labels_dir="/home/ubuntu/mytf/data/y_train.txt"
+      filenames = np.genfromtxt(data_dir,dtype="string")
+      print ("read the filenames!!")
+
+      image_list = []
+      for i in xrange(len(filenames)):
+        fn = filenames[i].replace('\n','').strip()
+        image_list.append("/home/ubuntu/mytf/images/%s.png" % fn)
+
+      label_list = np.genfromtxt(data_dir)
+      print ("read the labellist!!")
+      
+      
+      images = tf.convert_to_tensor(image_list, dtype=tf.string)
+      labels = tf.convert_to_tensor(label_list, dtype=tf.int32)
+      print ("converted to tensors!")
+
+      # Makes an input queue
+      input_queue = tf.train.slice_input_producer([images, labels])
+      print ("sliciing done")
+
+      #Read individual image, label from the queue
+      image, label = read_images_from_disk(input_queue)
+      print ("read_images_from_disk done")
+      print (image.get_shape())
+      print (label.get_shape())
+      image = tf.cast(image, tf.float32)
+      label = tf.cast(label, tf.float32)
+
+      # Randomly crop a [height, width] section of the image.
+      #distorted_image = tf.random_crop(image, [24, 24, 3])
+
+      # Randomly flip the image horizontally.
+      distorted_image = tf.image.random_flip_left_right(image)
+
+      # Because these operations are not commutative, consider randomizing
+      # the order their operation.
+      distorted_image = tf.image.random_brightness(distorted_image,
+                                               max_delta=63)
+      distorted_image = tf.image.random_contrast(distorted_image,
+                                             lower=0.2, upper=1.8)
+
+      # Subtract off the mean and divide by the variance of the pixels.
+      float_image = tf.image.per_image_whitening(distorted_image)
+
+
+      min_fraction_of_examples_in_queue = 0.4
+      min_queue_examples = int(NUM_EXAMPLES_PER_EPOCH_FOR_TRAIN * min_fraction_of_examples_in_queue)
+      print ('Filling queue with %d CIFAR images before starting to train. This will take a few minutes.' % min_queue_examples)
+
+      # Generate a batch of images and labels by building up a queue of examples.
+      num_preprocess_threads=8
+      images, label_batch = tf.train.batch([float_image,label], batch_size=BATCH_SIZE, capacity=min_queue_examples+ 3 * BATCH_SIZE,num_threads=num_preprocess_threads)
+      print ("queueuing done")
+      return images, label_batch 
+
 
 def train():
-    X_train = np.load('X_train_large_subset_1_15000.npy')
-    X_train = X_train.astype(np.float32)
-
-    y_train = np.genfromtxt('y_train_large_subset_1_15000.txt')
-    y_train = one_hot(y_train)
+    #images_labels = []
+    
+    #images_labels = np.column_stack((y_train, X_train))
+      
     
     with tf.Graph().as_default(), tf.device('/cpu:0'):
+      #images = tf.constant(X_train,dtype='float32')
+      #labels = tf.constant(y_train,dtype='float32')
+      #images_labels = tf.constant(images_labels,dtype='float32')
+      
       # Create a variable to count the number of train() calls. This equals the
       # number of batches processed * FLAGS.num_gpus.
       global_step = tf.get_variable('global_step', [],initializer=tf.constant_initializer(0), trainable=False)
@@ -251,29 +361,7 @@ def train():
 
       # Create an optimizer that performs gradient descent.
       opt = tf.train.GradientDescentOptimizer(lr)
-     
-      #READ our IMAGES!!!
-      images = tf.placeholder(tf.float32, shape=[BATCH_SIZE,IMAGE_SIZE,IMAGE_SIZE,3])
-
-      # Randomly crop a [height, width] section of the image.
-      #distorted_images =  tf.map_fn(lambda img: tf.random_crop(img, [height, width, 3]), images)
-      #tf.random_crop(reshaped_image, [height, width, 3])
-
-      # Randomly flip the image horizontally.
-      distorted_images = tf.map_fn(lambda img: tf.image.random_flip_left_right(img), images)
-      
-      # Because these operations are not commutative, consider randomizing
-      # the order their operation.
-      distorted_images = tf.map_fn(lambda img: tf.image.random_brightness(img,max_delta=63), distorted_images)
-
-      distorted_images = tf.map_fn(lambda img: tf.image.random_contrast(img,lower=0.2, upper=1.8), distorted_images)
-
-      # Subtract off the mean and divide by the variance of the pixels.
-      float_images = tf.map_fn(lambda img: tf.image.per_image_whitening(img), distorted_images)
-      
-
-      labels = tf.placeholder(tf.float32, shape=[BATCH_SIZE,10])
-  
+      #opt = tf.train.AdamOptimizer(lr)
 
       #Calculate the gradients for each model tower.
       tower_grads = []
@@ -284,7 +372,7 @@ def train():
             # Calculate the loss for one tower of the CIFAR model. This function
             # constructs the entire CIFAR model but shares the variables across
             # all towers.
-            loss = tower_loss(scope,float_images,labels)
+            loss = tower_loss(scope)
 
             # Reuse variables for the next tower.
             tf.get_variable_scope().reuse_variables()
@@ -316,33 +404,29 @@ def train():
       init = tf.initialize_all_variables()
 
 
-      # Calculate predictions.
-      #prediction=tf.nn.softmax(logits)
-
-
       # Start running operations on the Graph. allow_soft_placement must be set to
       # True to build towers on GPU, as some of the ops do not have GPU
       # implementations.
-      sess = tf.Session(config=tf.ConfigProto(allow_soft_placement=True,log_device_placement=FLAGS.log_device_placement))
+      config = tf.ConfigProto(allow_soft_placement=True,log_device_placement=FLAGS.log_device_placement)
+      config.gpu_options.allocator_type = 'BFC'
+      sess = tf.Session(config=config)
       sess.run(init)
 
-      
+      # Start the queue runners.
+      tf.train.start_queue_runners(sess=sess)
+
       for step in xrange(FLAGS.max_steps):
         start_time = time.time()
-        indices = np.random.permutation(X_train.shape[0])[:100]
-        X_batch = X_train[indices,:,:,:]
-        y_batch = y_train[indices,:]
-        feed_dict = {images : X_batch, labels : y_batch} 
-        _, loss_value = sess.run([train_op, loss], feed_dict=feed_dict)
+        _, loss_value = sess.run([train_op, loss])
         duration = time.time() - start_time
         assert not np.isnan(loss_value), 'Model diverged with loss = NaN'
 
-        if step % 10 == 0:
+        if step % 50 == 0:
           num_examples_per_step = BATCH_SIZE * FLAGS.num_gpus
           examples_per_sec = num_examples_per_step / float(duration)
           sec_per_batch = float(duration) / FLAGS.num_gpus
 
-          format_str = ('%s: step %d, loss = %.2f (%.1f examples/sec; %.3f ''sec/batch)')
+          format_str = ('%s: step %d, loss = %.7f (%.1f examples/sec; %.3f ''sec/batch)')
           print (format_str % (datetime.now(), step, loss_value,examples_per_sec, sec_per_batch))
 
         
