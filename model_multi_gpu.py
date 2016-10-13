@@ -36,7 +36,7 @@ noOfIterations = 80000
 image_size = 32
 num_channels = 3
 num_labels = 10
-batch_size = 100
+batch_size = 500
 
 #layer initialization functions
 def conv_ortho_weights(chan_in,filter_h,filter_w,chan_out):
