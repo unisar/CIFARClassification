@@ -30,7 +30,7 @@ NUM_EXAMPLES_PER_EPOCH_FOR_TRAIN = cifar10_input.NUM_EXAMPLES_PER_EPOCH_FOR_TRAI
 
 # Constants describing the training process.
 MOVING_AVERAGE_DECAY = 0.9999     # The decay to use for the moving average.
-NUM_EPOCHS_PER_DECAY = 350.0      # Epochs after which learning rate decays.
+NUM_EPOCHS_PER_DECAY = 200.0      # Epochs after which learning rate decays.
 LEARNING_RATE_DECAY_FACTOR = 0.1  # Learning rate decay factor.
 INITIAL_LEARNING_RATE = 0.1       # Initial learning rate.
 
@@ -84,14 +84,19 @@ def training_inputs():
   return images, labels
 
 
-def inference(images, batchSize=FLAGS.batch_size):
+def inference(images, kp0=0.8, kp1=0.5, kp2=0.5, batchSize=FLAGS.batch_size):
+  print ('kp0 %.f, kp1 %.f, kp2 %.f' % (kp0, kp1, kp2))
+  # drop1
+  with tf.variable_scope('drop1') as scope:
+    drop1 = tf.nn.dropout(images, keep_prob=kp0, name='drop1')
+
   # conv1
   with tf.variable_scope('conv1') as scope:
     kernel = _variable_with_weight_decay('weights',
                                          shape=[3, 3, 3, 96],
                                          stddev=5e-2,
                                          wd=0.0)
-    conv = tf.nn.conv2d(images, kernel, [1, 1, 1, 1], padding='SAME')
+    conv = tf.nn.conv2d(drop1, kernel, [1, 1, 1, 1], padding='SAME')
     biases = _variable_on_cpu('biases', [96], tf.constant_initializer(0.0))
     bias = tf.nn.bias_add(conv, biases)
     conv1 = tf.nn.relu(bias, name=scope.name)
@@ -121,13 +126,17 @@ def inference(images, batchSize=FLAGS.batch_size):
     conv3 = tf.nn.relu(bias, name=scope.name)
     _activation_summary(conv3)
 
+  # drop2
+  with tf.variable_scope('drop2') as scope:
+    drop2 = tf.nn.dropout(conv3, keep_prob=kp1, name='drop2')
+
   # conv4
   with tf.variable_scope('conv4') as scope:
     kernel = _variable_with_weight_decay('weights',
                                          shape=[3, 3, 96, 192],
                                          stddev=5e-2,
                                          wd=0.0)
-    conv = tf.nn.conv2d(conv3, kernel, [1, 1, 1, 1], padding='SAME')
+    conv = tf.nn.conv2d(drop2, kernel, [1, 1, 1, 1], padding='SAME')
     biases = _variable_on_cpu('biases', [192], tf.constant_initializer(0.0))
     bias = tf.nn.bias_add(conv, biases)
     conv4 = tf.nn.relu(bias, name=scope.name)
@@ -157,13 +166,17 @@ def inference(images, batchSize=FLAGS.batch_size):
     conv6 = tf.nn.relu(bias, name=scope.name)
     _activation_summary(conv6)
 
+  # drop3
+  with tf.variable_scope('drop3') as scope:
+    drop3 = tf.nn.dropout(conv6, keep_prob=kp2, name='drop3')
+
   # conv7
   with tf.variable_scope('conv7') as scope:
     kernel = _variable_with_weight_decay('weights',
                                          shape=[3, 3, 192, 192],
                                          stddev=5e-2,
                                          wd=0.0)
-    conv = tf.nn.conv2d(conv6, kernel, [1, 1, 1, 1], padding='SAME')
+    conv = tf.nn.conv2d(drop3, kernel, [1, 1, 1, 1], padding='SAME')
     biases = _variable_on_cpu('biases', [192], tf.constant_initializer(0.0))
     bias = tf.nn.bias_add(conv, biases)
     conv7 = tf.nn.relu(bias, name=scope.name)
@@ -194,7 +207,8 @@ def inference(images, batchSize=FLAGS.batch_size):
     _activation_summary(conv9)
 
   # avg
-  avg = tf.nn.avg_pool(conv9, ksize=[1, 8, 8, 1], strides=[1, 1, 1, 1],
+  with tf.variable_scope('avg') as scope:
+    avg = tf.nn.avg_pool(conv9, ksize=[1, 8, 8, 1], strides=[1, 1, 1, 1],
                          padding='VALID', name='avg')
   
   with tf.variable_scope('lastlayer') as scope:

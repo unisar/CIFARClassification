@@ -76,7 +76,7 @@ def evaluate():
    
     # Build a Graph that computes the logits predictions from the
     # inference model.
-    logits = cifar10.inference(images, batch_size)
+    logits = cifar10.inference(images, 1, 1, 1, batch_size)
 
     # Calculate predictions.
     # prediction=tf.argmax(logits,1)
