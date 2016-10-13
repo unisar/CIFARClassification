@@ -57,3 +57,6 @@ Once your environment has been setup, download the project files and run the fol
 
 Cross validation accuracy is recorded every 100 iterations to *accuracy.txt*. 
 Predictions are saved every 5000 iterations to *prediction.txt*.
+
+**Note:** The multi-GPU model is configured to use a batch size of 500 so each iteration may take slightly longer
+than in the single-GPU model.
