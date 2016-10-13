@@ -2,6 +2,7 @@ import tensorflow as tf
 import numpy as np
 from sklearn.cross_validation import train_test_split
 import random
+import time
 
 #load training data
 try:
@@ -142,6 +143,7 @@ sess.run(init_op)
 open('accuracy.txt', 'w').close()
 
 for i in range(noOfIterations):
+    start = time.time()
     indices = np.random.permutation(X_train.shape[0])[:batch_size]
     
     #generate random minibatch
@@ -167,6 +169,8 @@ for i in range(noOfIterations):
     #train
     feed_dict = {tfx:X_batch,tfy:y_batch,kp1:0.8,kp2:0.5}
     l,_ = sess.run([loss,optimizer], feed_dict=feed_dict)
+    end = time.time()
+    print 'time elapsed: ', end - start
     print 'iteration %i loss: %.4f' % (i, l)
     
     #cross validation accuracy
