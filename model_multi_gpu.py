@@ -70,6 +70,7 @@ def max_pool_2x2(x):
     return tf.nn.max_pool(x, ksize=[1,2,2,1], strides=[1,2,2,1], padding='SAME')
 
 #neural net architecture
+#for architecture details see single-gpu model
 tfx = tf.placeholder(tf.float32, shape=[None,image_size,image_size,num_channels])
 tfy = tf.placeholder(tf.float32, shape=[None,num_labels])
 kp1 = tf.placeholder(tf.float32)
@@ -92,6 +93,10 @@ w8 = tf.Variable(dense_ortho_weights(2000, num_labels),name='w8')
 b8 = tf.Variable(bias_variable([num_labels]),name='b8')
 optimizer = tf.train.AdamOptimizer(0.0002,0.9,0.99)
 
+#split operations over 4 gpu devices
+#each GPU takes 1/4 of the input data and operates on that portion
+#each GPU calculates the loss and gradients over 1/4 of the input data
+#for architecture details see single-gpu model
 with tf.device('/gpu:0'):
     tfx_1 = tf.slice(tfx,[0,0,0,0],[batch_size/4,32,32,3])
     tfy_1 = tf.slice(tfy,[0,0],[batch_size/4,10])
@@ -168,6 +173,7 @@ with tf.device('/gpu:3'):
     loss_4 = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(lastLayer_4,tfy_4))
     grad_4 = optimizer.compute_gradients(loss_4)
 
+#function to average gradients, taken from tensorflow CIFAR-10 example
 def average_gradients(tower_grads):
     average_grads = []
     for grad_and_vars in zip(*tower_grads):
@@ -181,10 +187,17 @@ def average_gradients(tower_grads):
         grad_and_var = (grad, v)
         average_grads.append(grad_and_var)
     return average_grads
-    
+
+#average the gradients over each of the 4 GPUs  
 grads = average_gradients([grad_1,grad_2,grad_3,grad_4])
+
+#average the loss over each of the 4 GPUs
 loss = tf.reduce_mean([loss_1,loss_2,loss_3,loss_4], 0)
+
+#apply the averaged gradient
 apply_gradient = optimizer.apply_gradients(grads)
+
+#combine last layer output of 4 GPUs for additional calculations during cross validation
 lastLayer = tf.concat(0, [lastLayer_1,lastLayer_2,lastLayer_3,lastLayer_4])
 prediction=tf.nn.softmax(lastLayer)
 correct_prediction = tf.equal(tf.argmax(prediction,1), tf.argmax(tfy,1))

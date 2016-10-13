@@ -31,7 +31,8 @@ for image recognition tasks. We used the following architecture/features for our
 ## Runtime Environment
 We tested our model in multiple environments including Theano, Tensorflow, and DeepLearning4j.
 We built our final model in TensorFlow because it provided the most functionality in terms of out-of-the-box
-neural network libraries and provided the easiest implementation of multi-GPU deployment.
+neural network libraries, had thorough documentation and accessible examples, and provided the easiest implementation
+of multi-GPU deployment.
 
 We provide two versions of our final model, one for single-GPU (or CPU) operation and one for multi-GPU operation.
 Our single-GPU model takes approximately 6 hours to train on an AWS G2.2xLarge instance. Our multi-GPU model was
@@ -51,7 +52,7 @@ We recommend running the following scripts on an AWS G2 instance. Be sure to all
 
 Once your environment has been setup, download the project files and run the following:
 - **generate input data:** python preprocessing.py \<path to X_train.txt\> \<path to X_test.txt\> \<optional: 1 to enable ZCA whitening (requires theano and scipy)\>
-- **predict using single GPU/CPU:** python model_single_gpu.py
+- **predict using single GPU/CPU (recommended):** python model_single_gpu.py
 - **predict using 4 GPUs:** python model_multi_gpu.py
 
 Cross validation accuracy is recorded every 100 iterations to *accuracy.txt*. 
