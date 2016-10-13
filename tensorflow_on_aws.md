@@ -35,7 +35,7 @@ sudo reboot
 
 * Install latest Linux headers
 
-sudo apt-get install -y linux-source linux-headers-`uname -r` 
+sudo apt-get install -y linux-source linux-headers-`` ` ``uname -r`` ` `` 
 
 * Tensorflow binary packages for GPU version works best(rather only works) with Cuda Toolkit 7.5 and cuDNN v5.1. To install the toolkit:
 
