@@ -26,14 +26,19 @@ for image recognition tasks. We used the following architecture/features for our
 - softmax layer
 - adam gradient descent
 - orthogonal weight initialization
+- batch size 100, 80000 training iterations
 
 ## Runtime Environment
 We tested our model in multiple environments including Theano, Tensorflow, and DeepLearning4j.
 We built our final model in TensorFlow because it provided the most functionality in terms of out-of-the-box
-neural network libraries and provided the easiest implementation of multi-GPU deployment.
+neural network libraries, had thorough documentation and accessible examples, and provided the easiest implementation
+of multi-GPU deployment.
 
 We provide two versions of our final model, one for single-GPU (or CPU) operation and one for multi-GPU operation.
-The model takes approximately 6 hours to train on an AWS G2.2xLarge instance using a single GPU.
+Our single-GPU model takes approximately 6 hours to train on an AWS G2.2xLarge instance. Our multi-GPU model was
+designed for a G2.8xLarge instance and is hardcoded to run on 4 GPUs. We noticed a >2x speedup when using larger
+batch sizes (>500), but with our default batch size of 100, the speedup was insignificant. Therefore we recommend
+running the single-GPU model instead of the multi-GPU model.
 
 ## Instructions for Running Model
 We recommend running the following scripts on an AWS G2 instance. Be sure to allocate disk space to the instance
@@ -47,7 +52,11 @@ We recommend running the following scripts on an AWS G2 instance. Be sure to all
 
 Once your environment has been setup, download the project files and run the following:
 - **generate input data:** python preprocessing.py \<path to X_train.txt\> \<path to X_test.txt\> \<optional: 1 to enable ZCA whitening (requires theano and scipy)\>
-- **predict using single GPU/CPU:** python model_single_gpu.py
+- **predict using single GPU/CPU (recommended):** python model_single_gpu.py
+- **predict using 4 GPUs:** python model_multi_gpu.py
 
 Cross validation accuracy is recorded every 100 iterations to *accuracy.txt*. 
 Predictions are saved every 5000 iterations to *prediction.txt*.
+
+**Note:** The multi-GPU model is configured to use a batch size of 500 so each iteration may take slightly longer
+than in the single-GPU model.
