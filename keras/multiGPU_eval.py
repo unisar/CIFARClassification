@@ -1,3 +1,35 @@
+# Copyright 2015 The TensorFlow Authors. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ==============================================================================
+
+"""Evaluation for CIFAR-10.
+
+Accuracy:
+cifar10_train.py achieves 83.0% accuracy after 100K steps (256 epochs
+of data) as judged by cifar10_eval.py.
+
+Speed:
+On a single Tesla K40, cifar10_train.py processes a single batch of 128 images
+in 0.25-0.35 sec (i.e. 350 - 600 images /sec). The model reaches ~86%
+accuracy after 100K steps in 8 hours of training time.
+
+Usage:
+Please see the tutorial and website for how to download the CIFAR-10
+data set, compile the program and train the model.
+
+http://tensorflow.org/tutorials/deep_cnn/
+"""
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -10,40 +42,23 @@ import numpy as np
 import tensorflow as tf
 
 from tensorflow.models.image.cifar10 import cifar10
-import multiGPU
+import multiGPU2
 
-np.set_printoptions(threshold=np.nan)
 FLAGS = tf.app.flags.FLAGS
+
 tf.app.flags.DEFINE_string('eval_dir', '/home/ubuntu/cifar10_eval',"""Directory where to write event logs.""")
 tf.app.flags.DEFINE_string('eval_data', 'test',"""Either 'test' or 'train_eval'.""")
 tf.app.flags.DEFINE_string('checkpoint_dir', '/home/ubuntu/cifar10_train',"""Directory where to read model checkpoints.""")
 tf.app.flags.DEFINE_integer('eval_interval_secs', 60 * 5,"""How often to run the eval.""")
-tf.app.flags.DEFINE_integer('num_examples', 1000,"""Number of examples to run.""")
-tf.app.flags.DEFINE_boolean('run_once', True,"""Whether to run eval only once.""")
-
-
-
-# Constants describing the training process.
-TOWER_NAME = 'tower'
-MOVING_AVERAGE_DECAY = 0.9999     # The decay to use for the moving average.
-NUM_EPOCHS_PER_DECAY = 350.0      # Epochs after which learning rate decays.
-LEARNING_RATE_DECAY_FACTOR = 0.1  # Learning rate decay factor.
-INITIAL_LEARNING_RATE = 0.1       # Initial learning rate.
+tf.app.flags.DEFINE_integer('num_examples', 10000,"""Number of examples to run.""")
+tf.app.flags.DEFINE_boolean('run_once', False,"""Whether to run eval only once.""")
 IMAGE_SIZE = 32
-RUN_ONCE = True
-
-def one_hot(y):
-    retVal = np.zeros((len(y), 10))
-    retVal[np.arange(len(y)), y.astype(int)] = 1
-    return retVal
-
-def accuracy(predictions, labels):
-    return (100.0 * np.sum(np.argmax(predictions, 1) == np.argmax(labels, 1))/ predictions.shape[0])
+BATCH_SIZE = 100
+NUM_EXAMPLES_PER_EPOCH_FOR_EVAL = 10000
+MOVING_AVERAGE_DECAY = 0.09
 
 
-def eval_once(saver, top_k_op, labels, final_predictions, final_labels):
-  print("in eval_once!!")
-
+def eval_once(saver, prediction):
   """Run Eval once.
 
   Args:
@@ -53,9 +68,8 @@ def eval_once(saver, top_k_op, labels, final_predictions, final_labels):
     summary_op: Summary op.
   """
   with tf.Session() as sess:
-    #global final_predictions 
+    
     ckpt = tf.train.get_checkpoint_state(FLAGS.checkpoint_dir)
-    print("ckpt Directory found!!")
     if ckpt and ckpt.model_checkpoint_path:
       # Restores from checkpoint
       saver.restore(sess, ckpt.model_checkpoint_path)
@@ -68,105 +82,108 @@ def eval_once(saver, top_k_op, labels, final_predictions, final_labels):
       return
 
     # Start the queue runners.
-    #coord = tf.train.Coordinator()
+    coord = tf.train.Coordinator()
     try:
-     # x = sess.run([logits])
-      #print (x.eval())
+      threads = []
+      for qr in tf.get_collection(tf.GraphKeys.QUEUE_RUNNERS):
+        threads.extend(qr.create_threads(sess, coord=coord, daemon=True,start=True))
     
-      print("in try block")
-      #threads = []
-      #for qr in tf.get_collection(tf.GraphKeys.QUEUE_RUNNERS):
-      #  threads.extend(qr.create_threads(sess, coord=coord, daemon=True,start=True))
-
-      num_iter = int(math.ceil(FLAGS.num_examples / 100))
-      true_count = 0  # Counts the number of correct predictions.
-      total_sample_count = num_iter * 100
+      num_iter = int(math.ceil(10000/100))
       step = 0
-      print("step < num_iter")
-      while step < num_iter:
-        print ("in whilEE!!")
-        predictions = sess.run([top_k_op])
-        print (predictions)
-        final_predictions.append(predictions)
-        final_labels.append(labels)
-        print ("after append predictions:")
-        print (final_predictions)
-        print ("after append label:")
-        print (final_labels)
-        #true_count += np.sum(predictions)
-        step += 1
-        
-        
-      # Compute precision @ 1.
-      #precision = true_count / total_sample_count
-      #print('%s: precision @ 1 = %.3f' % (datetime.now(), precision))
+      preds=[]
+      while step < num_iter and not coord.should_stop():
+          p = sess.run(prediction)
+          preds.append(np.argmax(p, 1))
+          step = step + 1
+          print("Step: %i",step)
+      
+      pred = np.concatenate(preds)
+      np.savetxt('prediction.txt', pred, fmt='%.0f')
 
     except Exception as e:  # pylint: disable=broad-except
-      print(e)
+      coord.request_stop(e)
+      
+    coord.request_stop()
+    coord.join(threads,stop_grace_period_secs=5)
+   
+def read_images_from_disk(img_Q):
+      fileName = img_Q[0]
+      file_contents = tf.read_file(fileName)
+      example = tf.image.decode_png(file_contents, channels=3,dtype=tf.uint8)
+      example.set_shape([32, 32, 3])
+      return example
 
-    #coord.request_stop()
-    #coord.join(threads)
-    print("before return from eval_once")
-    return final_predictions, final_labels
-    
+def read_and_preprocess_images():
+      data_dir="/home/ubuntu/mytf/data/X_test.txt"
+      filenames = np.genfromtxt(data_dir,dtype="string")
+      print ("read the filenames!!")
+      
+      image_list = []
+      for i in xrange(len(filenames)):
+        fn = filenames[i].replace('\n','').strip()
+        image_list.append("/home/ubuntu/mytf/images/%s.png" % fn)
+
+      images = tf.convert_to_tensor(image_list, dtype=tf.string)
+      print ("converted to tensors!")
+
+      # Makes an input queue
+      input_queue = tf.train.slice_input_producer([images])
+      print ("sliciing done")
+
+      #Read individual image, label from the queue
+      image = read_images_from_disk(input_queue)
+      image = tf.cast(image, tf.float32)
+      print ("read_images_from_disk done")
+      
+      # Image processing for evaluation.
+      # Crop the central [height, width] of the image.
+      distorted_image = tf.image.random_flip_left_right(image)
+
+      distorted_image = tf.image.random_brightness(distorted_image,max_delta=63)
+      
+      distorted_image = tf.image.random_contrast(distorted_image,lower=0.2, upper=1.8)
+      
+      # Subtract off the mean and divide by the variance of the pixels.
+      distorted_image = tf.image.per_image_whitening(distorted_image)
+
+      # Ensure that the random shuffling has good mixing properties.
+      min_fraction_of_examples_in_queue = 0.4
+      num_preprocess_threads = 4
+      min_queue_examples = int(NUM_EXAMPLES_PER_EPOCH_FOR_EVAL * min_fraction_of_examples_in_queue)
+      images = tf.train.batch([distorted_image],batch_size=BATCH_SIZE,num_threads=num_preprocess_threads,capacity=min_queue_examples + 3 * BATCH_SIZE)
+  
+      return images
 
 def evaluate():
-  X_train = np.load('X_train_large_subset_15001_30000.npy')
-  X_train = X_train.astype(np.float32)
 
-  #labels = np.genfromtxt('y_train.txt')
-  y_train = np.genfromtxt('y_train_large_subset_15001_30000.txt')
-  #y_train = one_hot(y_train)
-  
-  print("everything readd!!!")
-    
   """Eval CIFAR-10 for a number of steps."""
-  with tf.Graph().as_default():
+  with tf.Graph().as_default() as g:
     # Get images and labels for CIFAR-10.
     #eval_data = FLAGS.eval_data == 'test'
-   
-    #READ our IMAGES!!!
-    for i in range(11):
-      conv_img = tf.convert_to_tensor(X_train[i],dtype=tf.float32)
-      conv_label = tf.convert_to_tensor(y_train[i],dtype=tf.int32)
-      images, labels = tf.train.batch([conv_img, conv_label],batch_size=100)
-
+    
+    # Get images and labels for CIFAR-10.
+    images = read_and_preprocess_images()
     
     # Build a Graph that computes the logits predictions from the
     # inference model.
-    logits = multiGPU.inference(images)
-    
-    
-    # Calculate predictions.
-    #labels = tf.argmax(labels, 1)
-    top_k_op=tf.nn.softmax(logits)
-    #top_k_op = tf.nn.in_top_k(logits, labels, 1)
-    print("top_k_op done!!")
+    logits = multiGPU2.inference(images)
+
+    preds = tf.nn.softmax(logits)
 
     # Restore the moving average version of the learned variables for eval.
     variable_averages = tf.train.ExponentialMovingAverage(MOVING_AVERAGE_DECAY)
     variables_to_restore = variable_averages.variables_to_restore()
     saver = tf.train.Saver(variables_to_restore)
-    print("saver done!!")
-
-    # Build the summary operation based on the TF collection of Summaries.
-    # summary_op = tf.merge_all_summaries()
-
-    # summary_writer = tf.train.SummaryWriter(FLAGS.eval_dir, g)
-    final_predictions = []
-    final_labels = []
+    
     while True:
-      final_predictions, final_labels = eval_once(saver, top_k_op, labels,final_predictions,final_labels)
-      if RUN_ONCE:
+      eval_once(saver,preds)
+      if FLAGS.run_once:
         break
       time.sleep(FLAGS.eval_interval_secs)
-      print (final_predictions)
-      print (final_labels)
 
-def main(argv=None):
-    print("in main!!!")
-    evaluate()
+def main(argv=None):  # pylint: disable=unused-argument
+  evaluate()
+
 
 if __name__ == '__main__':
   main()
-  #tf.app.run()
