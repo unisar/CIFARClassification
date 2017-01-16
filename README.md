@@ -5,7 +5,7 @@ This exercise applies image recognition techniques to classify images in the CIF
 CIFAR-10  is an established computer-vision dataset used for object recognition. It consists of 60,000 32x32 color
 images containing one of 10 object classes, with 6000 images per class.
 
-![scene1](https://github.com/eds-uga/eatingnails-project3/blob/master/extras/cifar-10.png)
+![scene1](https://github.com/unisar/CIFARClassification/blob/master/extras/cifar-10.png)
 
 ## Preprocessing
 The following preprocessing was applied to each image before sending to our classifier:
