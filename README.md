@@ -45,7 +45,7 @@ We recommend running the following scripts on an AWS G2 instance. Be sure to all
 (we recommend at least 30GB). Ensure the following Python packages are installed on your instance:
 - numpy
 - tensorflow (For instructions on how to setup TensorFlow on AWS, see 
-[TensorFlow on AWS Instructions](https://github.com/unisar/CIFARClassification/tensorflow_on_aws.md))
+[TensorFlow on AWS Instructions](https://github.com/unisar/CIFARClassification/blob/master/tensorflow_on_aws.md))
 - sklearn
 - theano (optional, required for ZCA whitening)
 - scipy (optional, required for ZCA whitening)
